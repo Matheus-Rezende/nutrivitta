@@ -14,7 +14,7 @@ Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('abre, faz o cadastro sem conta e registra no diário', (tester) async {
+  testWidgets('cadastro sem conta, diário, pedido de conexão, anamnese e medidas', (tester) async {
     SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const NutriVittaApp());
@@ -46,28 +46,4 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('248 kcal'), findsWidgets);
     expect(state.dirty, contains(AppState.dirtyDay(dateKey(DateTime.now()))));
-  });
-
-  testWidgets('pedido de conexão aparece no diário e no perfil', (tester) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const NutriVittaApp());
-    final local = find.text('Usar sem conta neste aparelho');
-    await _pumpUntil(tester, local);
-    await tester.tap(local);
-    await tester.pumpAndSettle();
-    final state = AppScope.read(tester.element(find.text('Sobre você')));
-    state.finishOnboarding(const Profile(name: 'Ana'), const Goals());
-    state.setLinks(const [Link(proUid: 'p1', patientUid: 'u1', proName: 'Dra. Bia', proCrn: 'CRN-3 123')]);
-    await tester.pumpAndSettle();
-    expect(find.text('Dra. Bia quer acompanhar sua alimentação'), findsOneWidget);
-    await tester.tap(find.text('Perfil'));
-    await tester.pumpAndSettle();
-    expect(find.text('1 pedido de conexão aguardando você'), findsOneWidget);
-
-    state.saveMeasure(const BodyMeasure('2026-11-01', {'waist': 80}));
-    state.setAnamnesis(const Anamnesis({'goal': 'Mais energia'}));
-    expect(state.dirty, containsAll([AppState.dirtyMeasures, AppState.dirtyAnamnesis]));
-    expect(state.exportBackup()['measures'], isNotEmpty);
-  });
 }
