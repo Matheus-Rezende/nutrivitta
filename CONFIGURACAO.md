@@ -1,87 +1,78 @@
 # Configuração da nuvem do NutriVitta
 
-O app precisa de um projeto Firebase próprio (separado do GM Fitness). Tudo aqui cabe no plano gratuito **Spark**, que não pede cartão. Não ative o plano Blaze nem o faturamento. Os nomes dos menus podem variar um pouco no console.
+Os dois apps usam o mesmo projeto Firebase, no plano gratuito **Spark**, que não pede cartão. Não ative o plano Blaze nem o faturamento. Os nomes dos menus podem variar um pouco no console.
 
-Ao final você terá três valores, nenhum deles secreto:
+## Já feito (13/11/2026)
 
-| Valor | Onde vai |
-|---|---|
-| ID do cliente da Web (`...apps.googleusercontent.com`) | `GOOGLE_WEB_CLIENT_ID` |
-| Chave de API da Web | `FIREBASE_API_KEY` |
-| ID do projeto | `FIREBASE_PROJECT_ID` |
+- Projeto **`nutrivitta`** criado (sem Analytics e sem Gemini).
+- **Authentication > Google** ativado, com o e-mail de suporte `cdf30000@gmail.com`.
+- **Firestore** criado em `southamerica-east1` (São Paulo), no modo produção.
+- **Google Drive API** ativada no Google Cloud.
 
-## 1. Criar o projeto
+Valores do projeto (nenhum é secreto):
 
-1. Acesse https://console.firebase.google.com e crie um projeto (ex.: `nutrivitta`). O Google Analytics pode ficar desligado.
-2. Em **Configurações do projeto > Geral**, anote o **ID do projeto**.
+| Valor | Onde vai | Conteúdo |
+|---|---|---|
+| ID do cliente da Web | `GOOGLE_WEB_CLIENT_ID` | `1088570032787-0q7drle795jm7ndn3lf8apiog2tvlrct.apps.googleusercontent.com` |
+| ID do projeto | `FIREBASE_PROJECT_ID` | `nutrivitta` |
+| Chave de API da Web | `FIREBASE_API_KEY` | Google Cloud > APIs e serviços > Credenciais > "Browser key (auto created by Firebase)" > Exibir chave |
 
-## 2. Login com o Google
+## Falta fazer
 
-1. **Authentication > Método de login > Google > Ativar**. Escolha o e-mail de suporte e salve.
-2. Abra de novo o provedor Google e, em **Configuração do SDK da Web**, copie o **ID do cliente da Web**.
-3. Em **Configurações do projeto > Geral**, copie a **Chave de API da Web** (ela aparece depois que o Authentication é ativado).
+### 1. Publicar as regras do banco
 
-## 3. Banco de dados
+Firestore Database > **Regras**: apague o conteúdo, cole o arquivo [`firestore.rules`](firestore.rules) e clique em **Publicar**. Sem isso o app mostra "A nuvem recusou o acesso".
 
-1. **Firestore Database > Criar banco de dados**, em **modo de produção**, na região `southamerica-east1` (São Paulo).
-2. Na aba **Regras**, apague o conteúdo, cole o arquivo [`firestore.rules`](firestore.rules) deste projeto e clique em **Publicar**.
+### 2. Chave de assinatura
 
-Essas regras garantem que cada pessoa só acessa os próprios dados e que o nutricionista só lê os pacientes que o autorizaram.
+O login Google só funciona em APKs assinados com uma chave cujo SHA-1 esteja cadastrado. Uma chave serve para os dois apps.
 
-## 4. App Android e chave de assinatura
-
-O login Google só funciona em APKs assinados com uma chave cujo SHA-1 esteja cadastrado.
-
-1. Gere uma chave (uma vez só; guarde o arquivo e a senha em local seguro):
+1. Gere a chave (uma vez só; guarde o arquivo e a senha em local seguro):
    ```
    keytool -genkey -v -keystore nutrivitta.jks -keyalg RSA -keysize 2048 -validity 10000 -alias nutrivitta
    ```
-2. Veja o SHA-1 dela:
+2. Veja o SHA-1:
    ```
    keytool -list -v -keystore nutrivitta.jks -alias nutrivitta
    ```
-3. No Firebase, em **Configurações do projeto > Geral > Seus apps > Adicionar app > Android**:
-   - Nome do pacote: `com.nutrivitta.nutrivitta`
-   - Certificado de assinatura SHA-1: o valor do passo 2
-   - Não é preciso baixar o `google-services.json`: o app usa a API REST.
-4. Para testar com `flutter run`, cadastre também o SHA-1 da chave de depuração da sua máquina (`~/.android/debug.keystore`, senha `android`, alias `androiddebugkey`).
 
-Para compilar localmente com a chave, crie `android/key.properties` (o arquivo já está no `.gitignore`):
+### 3. Registrar os dois apps Android
+
+Em **Configurações do projeto > Geral > Seus apps > Adicionar app > Android**, duas vezes:
+
+| Nome do pacote | Apelido |
+|---|---|
+| `com.nutrivitta.paciente` | NutriVitta |
+| `com.nutrivitta.pro` | NutriVitta Pro |
+
+Em cada um, informe o SHA-1 do passo 2. Não é preciso baixar o `google-services.json`: os apps usam a API REST. Para testar com `flutter run`, cadastre também o SHA-1 da chave de depuração da sua máquina (`~/.android/debug.keystore`, senha `android`, alias `androiddebugkey`).
+
+### 4. Tela de permissão do Google
+
+Google Cloud > **APIs e serviços > Tela de permissão OAuth**:
+- confira o nome do app e o e-mail de suporte;
+- adicione o escopo `.../auth/drive.appdata` (cópia no Drive do paciente);
+- enquanto estiver em modo **Teste**, só entram as contas em **Usuários de teste** (até 100). Para liberar a todos, publique o app nessa tela.
+
+### 5. Valores no GitHub
+
+No repositório, **Settings > Secrets and variables > Actions**:
+- **Variables**: `GOOGLE_WEB_CLIENT_ID`, `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`.
+- **Secrets**: `ANDROID_KEYSTORE_BASE64` (saída de `base64 -w0 nutrivitta.jks`) e `ANDROID_KEYSTORE_PASSWORD`.
+
+O fluxo `.github/workflows/flutter.yml` gera os dois APKs com esses valores. Para compilar na sua máquina, crie `apps/<app>/android/key.properties` (já está no `.gitignore`):
 ```
 storeFile=/caminho/para/nutrivitta.jks
 storePassword=SUA_SENHA
 keyAlias=nutrivitta
 ```
 
-## 5. Google Drive
+## Conferir
 
-1. Acesse https://console.cloud.google.com e selecione o mesmo projeto.
-2. **APIs e serviços > Biblioteca > Google Drive API > Ativar**.
-3. **APIs e serviços > Tela de permissão OAuth**: confira nome do app e e-mail de suporte, e adicione o escopo `.../auth/drive.appdata`.
-4. Enquanto o app estiver em modo **Teste**, só entram as contas listadas em **Usuários de teste**. Para liberar a todos, publique o app nessa mesma tela.
+1. Instale o **NutriVitta** com uma conta Google e faça o cadastro de paciente.
+2. Instale o **NutriVitta Pro** com outra conta, crie o perfil e toque em **Adicionar paciente** com o e-mail da primeira conta.
+3. No NutriVitta, o pedido aparece no topo do diário (e vira notificação em até ~15 min com o app fechado). Aceite.
+4. No Pro, puxe a lista para atualizar e abra o paciente: diário, resumo, medidas, anamnese, metas e recado.
+5. No console, em **Firestore Database > Dados**, devem aparecer `users`, `directory`, `pros` e `links`.
 
-## 6. Colocar os valores no app
-
-Escolha uma das formas:
-
-- **No código**: preencha as três constantes em `lib/config.dart`.
-- **Na compilação**:
-  ```
-  flutter build apk --release \
-    --dart-define=GOOGLE_WEB_CLIENT_ID=... \
-    --dart-define=FIREBASE_API_KEY=... \
-    --dart-define=FIREBASE_PROJECT_ID=...
-  ```
-- **No GitHub Actions** (o fluxo `.github/workflows/flutter.yml` já lê estes nomes):
-  - Em **Settings > Secrets and variables > Actions > Variables**: `GOOGLE_WEB_CLIENT_ID`, `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`.
-  - Em **Secrets**: `ANDROID_KEYSTORE_BASE64` (saída de `base64 -w0 nutrivitta.jks`) e `ANDROID_KEYSTORE_PASSWORD`.
-
-## 7. Conferir
-
-1. Instale o APK, toque em **Entrar com o Google** e crie um perfil de paciente.
-2. Em outra conta, crie um perfil de nutricionista e anote o código de convite.
-3. No paciente: **Perfil > Nutricionista > Vincular com código**.
-4. No nutricionista: puxe a lista de pacientes para atualizar, abra o paciente, defina metas e deixe um recado.
-5. No console, em **Firestore Database > Dados**, devem aparecer as coleções `users`, `invites` e `nutritionists`.
-
-Se o app mostrar "A nuvem recusou o acesso", as regras do passo 3 não foram publicadas. Se o login falhar logo após escolher a conta, o SHA-1 ou o ID do cliente da Web está errado.
+Se o login falhar logo após escolher a conta, o SHA-1 ou o ID do cliente da Web está errado.

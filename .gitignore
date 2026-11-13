@@ -21,6 +21,6 @@ __pycache__/
 *.pyc
 
 # chave de assinatura (nunca enviar ao GitHub)
-android/key.properties
+**/android/key.properties
 *.jks
 *.keystore

@@ -1,12 +1,14 @@
 rules_version = '2';
 
-// Regras de segurança do NutriVitta.
-// Cole este conteúdo em Firebase Console > Firestore Database > Regras.
+// Regras de segurança do NutriVitta (paciente) e do NutriVitta Pro (nutricionista).
+// Cole este conteúdo em Firebase Console > Firestore Database > Regras > Publicar.
 //
-// - Cada pessoa só lê e grava os próprios dados.
-// - O nutricionista só lê os dados de quem o autorizou (campo
-//   nutritionistUid no perfil do paciente), pode ajustar as metas e
-//   deixar recados; não altera o diário.
+// - Cada paciente só lê e grava os próprios dados.
+// - O nutricionista só lê os dados de quem aceitou o pedido de conexão:
+//   o uid dele precisa estar em users/{paciente}.nutritionistUids, lista que
+//   só o próprio paciente altera.
+// - O nutricionista pode ajustar metas, anamnese e medidas e deixar recados;
+//   não altera o diário nem as fotos.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -14,52 +16,89 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isNutritionistOf(patient) {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(patient)).data.nutritionistUid == request.auth.uid;
+    function isMe(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
 
-    match /users/{uid} {
-      allow read: if signedIn()
-        && (request.auth.uid == uid || resource.data.nutritionistUid == request.auth.uid);
-      allow create, delete: if signedIn() && request.auth.uid == uid;
-      allow update: if signedIn() && (
-        request.auth.uid == uid
-        || (resource.data.nutritionistUid == request.auth.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals']))
-      );
+    function proOf(patient) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/users/$(patient)).data.get('nutritionistUids', []);
+    }
 
-      // diário, alimentos próprios e pesagens
+    function canRead(patient) {
+      return isMe(patient) || proOf(patient);
+    }
+
+    // ---- paciente ----
+    match /users/{uid} {
+      allow read: if isMe(uid)
+        || (signedIn() && request.auth.uid in resource.data.get('nutritionistUids', []));
+      allow create, delete: if isMe(uid);
+      allow update: if isMe(uid)
+        || (signedIn() && request.auth.uid in resource.data.get('nutritionistUids', [])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals']));
+
       match /days/{day} {
-        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
-        allow write: if signedIn() && request.auth.uid == uid;
+        allow read: if canRead(uid);
+        allow write: if isMe(uid);
+      }
+      match /photos/{photo} {
+        allow read: if canRead(uid);
+        allow write: if isMe(uid)
+          && (request.resource == null || request.resource.data.data.size() < 900000);
       }
       match /meta/{doc} {
-        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
-        allow write: if signedIn() && request.auth.uid == uid;
+        allow read: if canRead(uid);
+        allow write: if isMe(uid) || (proOf(uid) && doc in ['anamnesis', 'measures']);
       }
-
-      // recados do nutricionista
       match /comments/{day} {
-        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
-        allow write: if isNutritionistOf(uid);
+        allow read: if canRead(uid);
+        allow write: if proOf(uid);
       }
     }
 
-    // código de convite do nutricionista
-    match /invites/{code} {
+    // e-mail do paciente -> uid, para o nutricionista enviar o pedido
+    match /directory/{email} {
       allow get: if signedIn();
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn() && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == request.auth.uid;
+      allow create, update: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.auth.token.email != null
+        && email == request.auth.token.email.lower();
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
-    // lista de pacientes de cada nutricionista (quem entra é o próprio paciente)
-    match /nutritionists/{nutritionist}/patients/{patient} {
-      allow read: if signedIn() && (request.auth.uid == nutritionist || request.auth.uid == patient);
-      allow create, update: if signedIn() && request.auth.uid == patient;
-      allow delete: if signedIn() && (request.auth.uid == patient || request.auth.uid == nutritionist);
+    // ---- nutricionista ----
+    match /pros/{uid} {
+      allow read: if signedIn();
+      allow write: if isMe(uid);
+    }
+
+    // ---- pedidos de conexão / vínculos ----
+    match /links/{id} {
+      allow read: if signedIn()
+        && (resource.data.proUid == request.auth.uid || resource.data.patientUid == request.auth.uid);
+
+      // o nutricionista envia o pedido
+      allow create: if signedIn()
+        && request.resource.data.proUid == request.auth.uid
+        && id == request.resource.data.proUid + '_' + request.resource.data.patientUid
+        && request.resource.data.status == 'pending';
+
+      allow update: if signedIn() && (
+        // o nutricionista reenvia, cancela ou encerra; não pode se aceitar sozinho
+        (resource.data.proUid == request.auth.uid
+          && request.resource.data.proUid == resource.data.proUid
+          && request.resource.data.patientUid == resource.data.patientUid
+          && request.resource.data.status in ['pending', 'cancelled', 'ended']
+          && !(resource.data.status == 'accepted' && request.resource.data.status == 'pending'))
+        // o paciente responde: só o status muda
+        || (resource.data.patientUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['accepted', 'declined', 'ended'])
+      );
+
+      allow delete: if signedIn()
+        && (resource.data.proUid == request.auth.uid || resource.data.patientUid == request.auth.uid);
     }
   }
 }

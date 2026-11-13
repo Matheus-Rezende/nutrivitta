@@ -16,10 +16,35 @@ env:
     --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
 
 jobs:
+  core:
+    name: Parte comum (análise e testes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/nutrivitta_core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
   android:
-    name: Análise, testes e APK
+    name: ${{ matrix.app }} - análise, testes e APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [paciente, pro]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,14 +86,21 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: nutrivitta-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: nutrivitta-${{ matrix.app }}-apk
+          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
 
   ios:
-    name: Compilação iOS (sem assinatura)
+    name: ${{ matrix.app }} - compilação iOS (sem assinatura)
     runs-on: macos-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [paciente, pro]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
     steps:
       - uses: actions/checkout@v4
 

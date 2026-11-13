@@ -1,0 +1,24 @@
+name: nutrivitta_pro
+description: NutriVitta Pro - acompanhamento alimentar dos pacientes pelo nutricionista.
+publish_to: 'none'
+version: 0.2.0+2
+
+environment:
+  sdk: ^3.13.0
+  flutter: '>=3.47.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  nutrivitta_core:
+    path: ../../packages/nutrivitta_core
+  google_sign_in: ^7.2.0
+  shared_preferences: ^2.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
