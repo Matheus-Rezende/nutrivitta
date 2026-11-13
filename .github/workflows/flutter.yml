@@ -1,0 +1,85 @@
+name: Verificar e compilar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: 3.47.9
+  # Configuração da nuvem (Settings > Secrets and variables > Actions > Variables).
+  # Nenhum destes valores é segredo. Veja CONFIGURACAO.md.
+  DEFINES: >-
+    --dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
+    --dart-define=FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }}
+    --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+
+jobs:
+  android:
+    name: Análise, testes e APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Análise
+        run: flutter analyze --no-fatal-infos
+
+      - name: Testes
+        run: flutter test
+
+      - name: Chave de assinatura (se configurada)
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/nutrivitta.jks"
+            echo "NV_KEYSTORE_PATH=$RUNNER_TEMP/nutrivitta.jks" >> "$GITHUB_ENV"
+          else
+            echo "Sem chave configurada: o APK usa a chave de depuração e o login Google não funciona nele."
+          fi
+
+      - name: APK
+        env:
+          NV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: flutter build apk --release $DEFINES
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nutrivitta-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  ios:
+    name: Compilação iOS (sem assinatura)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign $DEFINES

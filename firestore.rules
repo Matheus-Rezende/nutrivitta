@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// Regras de segurança do NutriVitta.
+// Cole este conteúdo em Firebase Console > Firestore Database > Regras.
+//
+// - Cada pessoa só lê e grava os próprios dados.
+// - O nutricionista só lê os dados de quem o autorizou (campo
+//   nutritionistUid no perfil do paciente), pode ajustar as metas e
+//   deixar recados; não altera o diário.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isNutritionistOf(patient) {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(patient)).data.nutritionistUid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn()
+        && (request.auth.uid == uid || resource.data.nutritionistUid == request.auth.uid);
+      allow create, delete: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && (
+        request.auth.uid == uid
+        || (resource.data.nutritionistUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals']))
+      );
+
+      // diário, alimentos próprios e pesagens
+      match /days/{day} {
+        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
+        allow write: if signedIn() && request.auth.uid == uid;
+      }
+      match /meta/{doc} {
+        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
+        allow write: if signedIn() && request.auth.uid == uid;
+      }
+
+      // recados do nutricionista
+      match /comments/{day} {
+        allow read: if signedIn() && (request.auth.uid == uid || isNutritionistOf(uid));
+        allow write: if isNutritionistOf(uid);
+      }
+    }
+
+    // código de convite do nutricionista
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // lista de pacientes de cada nutricionista (quem entra é o próprio paciente)
+    match /nutritionists/{nutritionist}/patients/{patient} {
+      allow read: if signedIn() && (request.auth.uid == nutritionist || request.auth.uid == patient);
+      allow create, update: if signedIn() && request.auth.uid == patient;
+      allow delete: if signedIn() && (request.auth.uid == patient || request.auth.uid == nutritionist);
+    }
+  }
+}
