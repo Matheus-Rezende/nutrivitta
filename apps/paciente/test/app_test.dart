@@ -46,4 +46,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('248 kcal'), findsWidgets);
     expect(state.dirty, contains(AppState.dirtyDay(dateKey(DateTime.now()))));
+
+    // pedido de conexão aparece no diário e no perfil
+    state.setLinks(const [Link(proUid: 'p1', patientUid: 'u1', proName: 'Dra. Bia', proCrn: 'CRN-3 123')]);
+    await tester.pumpAndSettle();
+    expect(find.text('Dra. Bia quer acompanhar sua alimentação'), findsOneWidget);
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 pedido de conexão aguardando você'), findsOneWidget);
+
+    // anamnese e medidas entram na fila de envio e na cópia do Drive
+    state.saveMeasure(const BodyMeasure('2026-11-01', {'waist': 80}));
+    state.setAnamnesis(const Anamnesis({'goal': 'Mais energia'}));
+    expect(state.dirty, containsAll([AppState.dirtyMeasures, AppState.dirtyAnamnesis]));
+    expect(state.exportBackup()['measures'], isNotEmpty);
+  });
 }
