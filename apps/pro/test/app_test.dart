@@ -6,6 +6,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('abre na tela de entrada do NutriVitta Pro', (tester) async {
+    SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const NutriVittaProApp());
     for (var i = 0; i < 40 && find.text('PRO').evaluate().isEmpty; i++) {

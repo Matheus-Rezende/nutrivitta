@@ -15,6 +15,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('abre, faz o cadastro sem conta e registra no diário', (tester) async {
+    SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const NutriVittaApp());
     final local = find.text('Usar sem conta neste aparelho');
@@ -48,6 +49,7 @@ void main() {
   });
 
   testWidgets('pedido de conexão aparece no diário e no perfil', (tester) async {
+    SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const NutriVittaApp());
     final local = find.text('Usar sem conta neste aparelho');
