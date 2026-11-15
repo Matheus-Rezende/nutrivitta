@@ -37,6 +37,12 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 
 A notificação não é instantânea porque o envio de push pelo Firebase exige um servidor (Cloud Functions), disponível só no plano pago.
 
+## Atualizações e configurações
+
+- Cada app procura versões novas na [página de Releases](https://github.com/Matheus-Rezende/nutrivitta/releases) (tags `paciente-v…` e `pro-v…`), avisa com as novidades e atualiza com um toque, baixando só a diferença quando possível. No iOS, a atualização é pela App Store/TestFlight.
+- Para publicar uma versão: suba o `version` do `pubspec.yaml` do app e escreva a seção correspondente no `CHANGELOG.md` dele. O fluxo `release.yml` gera os APKs assinados e cria a Release.
+- **Configurações** (engrenagem no Perfil): tema automático, claro ou escuro, cor de destaque, tamanho do texto, notificações, atualizações e Sobre o app.
+
 ## Onde os dados ficam
 
 1. **No aparelho do paciente**: o diário funciona sem internet e sincroniza depois.

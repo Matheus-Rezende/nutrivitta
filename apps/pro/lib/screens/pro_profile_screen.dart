@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 import '../pro_state.dart';
+import '../version.dart';
 import 'pro_onboarding_screen.dart';
 
 /// Perfil do nutricionista: conta, dados profissionais e sair.
@@ -16,7 +17,25 @@ class ProProfileScreen extends StatelessWidget {
     final account = Account.instance;
     final p = state.profile ?? const ProProfile();
     return Scaffold(
-      appBar: AppBar(title: const Text('Perfil')),
+      appBar: AppBar(
+        title: const Text('Perfil'),
+        actions: [
+          IconButton(
+            tooltip: 'Configurações',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SettingsScreen(app: kApp, settings: AppSettings.instance)),
+            ),
+            icon: ListenableBuilder(
+              listenable: Updater.instance,
+              builder: (context, _) => Badge(
+                isLabelVisible: Updater.instance.available != null,
+                child: const Icon(Icons.settings_outlined),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
@@ -73,15 +92,6 @@ class ProProfileScreen extends StatelessWidget {
               trailing: const Icon(Icons.edit_outlined),
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const ProOnboardingScreen(editing: true))),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
-            child: Text(
-              'NutriVitta Pro 0.2.0\n'
-              'Valores nutricionais: Tabela Brasileira de Composição de Alimentos (TACO), 4ª edição, NEPA/UNICAMP, 2011.\n'
-              'Os dados de alimentação e saúde dos pacientes são sensíveis (LGPD): use-os só para o acompanhamento.',
-              style: text.bodySmall,
             ),
           ),
         ],

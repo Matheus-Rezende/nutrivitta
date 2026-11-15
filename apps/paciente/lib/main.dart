@@ -7,6 +7,7 @@ import 'screens/patient_shell.dart';
 import 'screens/welcome_screen.dart';
 import 'state/app_state.dart';
 import 'sync.dart';
+import 'version.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,21 +25,22 @@ class _NutriVittaAppState extends State<NutriVittaApp> {
   late Future<AppState> _loading = _load();
 
   static Future<AppState> _load() async {
+    Updater.app = kApp;
+    await AppSettings.load(defaultAccent: Accent.green);
     final state = await AppState.load();
     await Sync.instance.init(state);
     await Background.instance.init();
     return state;
   }
 
-  MaterialApp _app(Widget home) {
-    return MaterialApp(
-      title: 'NutriVitta',
-      debugShowCheckedModeBanner: false,
-      theme: buildNvTheme(Brightness.light),
-      darkTheme: buildNvTheme(Brightness.dark),
-      home: home,
-    );
-  }
+  /// Antes de carregar as preferências (abertura e erro).
+  Widget _plain(Widget home) => MaterialApp(
+        title: 'NutriVitta',
+        debugShowCheckedModeBanner: false,
+        theme: buildNvTheme(Brightness.light),
+        darkTheme: buildNvTheme(Brightness.dark),
+        home: home,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -46,13 +48,29 @@ class _NutriVittaAppState extends State<NutriVittaApp> {
       future: _loading,
       builder: (context, snap) {
         if (snap.hasError) {
-          return _app(_LoadError(
+          return _plain(_LoadError(
             message: '${snap.error}',
             onRetry: () => setState(() => _loading = _load()),
           ));
         }
-        if (!snap.hasData) return _app(const _Splash());
-        return AppScope(state: snap.data!, child: _app(const _Root()));
+        if (!snap.hasData) return _plain(const _Splash());
+        final s = AppSettings.instance;
+        return AppScope(
+          state: snap.data!,
+          child: ListenableBuilder(
+            listenable: s,
+            builder: (context, _) => MaterialApp(
+              title: 'NutriVitta',
+              debugShowCheckedModeBanner: false,
+              navigatorKey: updateNavigatorKey,
+              theme: s.lightTheme(),
+              darkTheme: s.darkTheme(),
+              themeMode: s.themeMode,
+              builder: (context, child) => s.applyTextScale(context, UpdateProgressBanner(child: child!)),
+              home: const UpdateWatcher(child: _Root()),
+            ),
+          ),
+        );
       },
     );
   }

@@ -95,6 +95,36 @@ class Alerts {
     }
   }
 
+  /// As notificações estão permitidas no Android? (null: não dá para saber)
+  static Future<bool?> permitted() async {
+    if (!supported) return null;
+    try {
+      await _init();
+      final a = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      return await a?.areNotificationsEnabled();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Pede a permissão de novo (Android 13+).
+  static Future<void> requestPermission() async {
+    if (!supported) return;
+    try {
+      await _init();
+      final a = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await a?.requestNotificationsPermission();
+    } catch (e) {
+      debugPrint('Avisos: $e');
+    }
+  }
+
+  /// Notificação de teste (Configurações).
+  static Future<void> test(String appName) async {
+    final now = DateTime.now().toIso8601String();
+    await deliver([Alert('teste:$now', 'Notificação de teste', 'As notificações do $appName estão funcionando.')]);
+  }
+
   static Future<bool> enabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_kEnabled) ?? false;

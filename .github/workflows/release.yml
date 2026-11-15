@@ -1,0 +1,145 @@
+name: Publicar versão
+
+# Quando o campo version do pubspec.yaml de um app muda na main, gera os APKs
+# e publica uma Release com a tag <app>-v<versão> (ex.: paciente-v0.3.0,
+# pro-v0.3.0). Os apps procuram ali as atualizações. Também pode ser
+# disparado à mão na aba Actions.
+# Os APKs são assinados com a chave fixa dos segredos ANDROID_KEYSTORE_*.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/*/pubspec.yaml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: ${{ matrix.app }} - APK na página de Releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - app: paciente
+            title: NutriVitta
+          - app: pro
+            title: NutriVitta Pro
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versão
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([^+ ]+).*/\1/')
+          TAG="${{ matrix.app }}-v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "A versão ${TAG} já foi publicada."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.ver.outputs.exists == 'false'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        if: steps.ver.outputs.exists == 'false'
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+
+      - name: Chave de assinatura
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::error::Falta o segredo ANDROID_KEYSTORE_BASE64. Sem a chave fixa, o APK não instala por cima da versão anterior."
+            exit 1
+          fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/nutrivitta.jks"
+          echo "NV_KEYSTORE_PATH=$RUNNER_TEMP/nutrivitta.jks" >> "$GITHUB_ENV"
+
+      - name: APKs (universal e por processador)
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          NV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          APP: ${{ matrix.app }}
+        run: |
+          flutter pub get
+          mkdir -p out
+          # universal: para quem instala à mão
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk "out/nutrivitta-${TAG}.apk"
+          # um APK por processador (mesmo versionCode do universal)
+          for pair in arm64-v8a:android-arm64 armeabi-v7a:android-arm x86_64:android-x64; do
+            ABI="${pair%%:*}"; PLAT="${pair##*:}"
+            flutter build apk --release --target-platform "$PLAT"
+            cp build/app/outputs/flutter-apk/app-release.apk "out/nutrivitta-${TAG}-${ABI}.apk"
+          done
+          ls -la out
+
+      - name: Patches (só a diferença para a versão anterior)
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP: ${{ matrix.app }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          pip install --quiet bsdiff4
+          PREV=$(gh release list --limit 50 --json tagName -q "[.[] | select(.tagName | startswith(\"${APP}-v\"))][0].tagName" 2>/dev/null || true)
+          mkdir -p prev
+          if [ -n "$PREV" ]; then gh release download "$PREV" -p '*.apk' -D prev || true; fi
+          ls -la prev
+          python3 ../../tools/make_patches.py out prev "$VERSION" "$APP"
+          cat out/update.json
+
+      - name: Publicar
+        if: steps.ver.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TITLE: ${{ matrix.title }}
+          APP: ${{ matrix.app }}
+        run: |
+          APK="nutrivitta-${TAG}.apk"
+          cp "out/$APK" "$APK"
+          {
+            awk -v v="$VERSION" '
+              $0 ~ "^## " { if (on) exit; if ($2 == v) { on = 1; next } }
+              on { print }
+            ' CHANGELOG.md
+            echo
+            echo "## Como instalar no Android"
+            echo
+            echo "1. No celular, toque em **nutrivitta-${TAG}-arm64-v8a.apk** logo abaixo, em *Assets*, para baixar (serve para quase todos os celulares). Se não instalar, use **${APK}**, que funciona em qualquer aparelho."
+            echo "2. Abra o arquivo baixado. Se o Android pedir, permita **instalar apps desconhecidos** para o navegador ou o gerenciador de arquivos."
+            echo "3. Toque em **Instalar**."
+            echo
+            echo "Com o app instalado, as próximas versões aparecem sozinhas: o ${TITLE} avisa e atualiza com um toque, sem perder seus dados."
+          } > notas.md
+          LATEST=$([ "$APP" = paciente ] && echo true || echo false)
+          # o APK universal vai primeiro
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "${TITLE} v${VERSION}" --notes-file notas.md --latest=$LATEST
+          gh release upload "$TAG" out/nutrivitta-${TAG}-*.apk
+          ls out/*.patch >/dev/null 2>&1 && gh release upload "$TAG" out/*.patch
+          gh release upload "$TAG" out/update.json

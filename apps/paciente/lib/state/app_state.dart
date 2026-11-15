@@ -369,7 +369,7 @@ class AppState extends ChangeNotifier {
   /// Apaga os dados deste aparelho (a nuvem não é tocada).
   Future<void> wipe() async {
     // a sessão da conta e os avisos em segundo plano ficam (são da Account e do Background)
-    const keep = ['nv_fb_', 'nv_auto_signin', 'nv_background', 'nv_notified'];
+    const keep = ['nv_fb_', 'nv_auto_signin', 'nv_background', 'nv_notified', 'nv_settings'];
     for (final key in _prefs.getKeys().toList()) {
       if (key.startsWith('nv_') && !keep.any(key.startsWith)) await _prefs.remove(key);
     }

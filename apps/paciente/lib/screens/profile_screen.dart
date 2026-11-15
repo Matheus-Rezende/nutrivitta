@@ -3,6 +3,7 @@ import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 import '../state/app_state.dart';
 import '../sync.dart';
+import '../version.dart';
 import 'connections_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -154,26 +155,6 @@ class _StatusLine extends StatelessWidget {
   }
 }
 
-/// Crédito da tabela de alimentos e aviso de uso.
-class AboutCard extends StatelessWidget {
-  const AboutCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final state = AppScope.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
-      child: Text(
-        'NutriVitta 0.2.0\n'
-        'Valores nutricionais: ${state.foodDb.source}\n'
-        'O app ajuda no acompanhamento alimentar e não substitui a consulta com um profissional de saúde.',
-        style: text.bodySmall,
-      ),
-    );
-  }
-}
-
 /// Perfil do paciente.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -213,7 +194,22 @@ class ProfileScreen extends StatelessWidget {
     final pending = state.pendingLinks.length;
     final connected = state.connectedLinks;
     return Scaffold(
-      appBar: AppBar(title: const Text('Perfil')),
+      appBar: AppBar(
+        title: const Text('Perfil'),
+        actions: [
+          IconButton(
+            tooltip: 'Configurações',
+            onPressed: () => openSettings(context),
+            icon: ListenableBuilder(
+              listenable: Updater.instance,
+              builder: (context, _) => Badge(
+                isLabelVisible: Updater.instance.available != null,
+                child: const Icon(Icons.settings_outlined),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
@@ -276,9 +272,47 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
           ),
-          const AboutCard(),
         ],
       ),
     );
   }
+}
+
+/// Abre as Configurações do app do paciente.
+Future<void> openSettings(BuildContext context) {
+  final state = AppScope.read(context);
+  return Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) => SettingsScreen(
+        app: kApp,
+        settings: AppSettings.instance,
+        extra: [
+          const SettingsHeader('Dados', Icons.storage_outlined),
+          SettingsGroup(children: [
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: Theme.of(ctx).colorScheme.error),
+              title: Text('Apagar dados deste aparelho', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+              subtitle: const Text('Sai da conta e volta o app para a primeira abertura'),
+              onTap: () async {
+                final pending = state.dirty.isNotEmpty && Account.instance.signedIn;
+                final ok = await confirm(
+                  ctx,
+                  title: 'Apagar os dados deste aparelho?',
+                  text: 'O diário, as medidas e o perfil saem deste celular. '
+                      '${Account.instance.signedIn ? 'O que já foi sincronizado continua na sua conta e volta quando você entrar de novo.' : 'Sem conta Google, não dá para recuperar.'}'
+                      '${pending ? ' Há alterações ainda não enviadas, que serão perdidas.' : ''}',
+                  ok: 'Apagar',
+                );
+                if (!ok) return;
+                await Sync.instance.signOut();
+                await state.wipe();
+                if (ctx.mounted) Navigator.of(ctx).popUntil((r) => r.isFirst);
+              },
+            ),
+          ]),
+        ],
+      ),
+    ),
+  );
 }

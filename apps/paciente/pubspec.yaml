@@ -1,7 +1,7 @@
 name: nutrivitta_paciente
 description: NutriVitta - diário alimentar e calculadora de calorias do paciente.
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ^3.13.0
@@ -25,3 +25,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - CHANGELOG.md

@@ -6,6 +6,7 @@ import 'pro_state.dart';
 import 'screens/pro_onboarding_screen.dart';
 import 'screens/pro_shell.dart';
 import 'screens/pro_welcome_screen.dart';
+import 'version.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,8 @@ class _NutriVittaProAppState extends State<NutriVittaProApp> {
   late final Future<ProState> _loading = _load();
 
   static Future<ProState> _load() async {
+    Updater.app = kApp;
+    await AppSettings.load(defaultAccent: Accent.teal);
     final state = await ProState.load();
     final account = Account.instance;
     account.onSignedIn = state.onSignedIn;
@@ -32,23 +35,36 @@ class _NutriVittaProAppState extends State<NutriVittaProApp> {
     return state;
   }
 
-  MaterialApp _app(Widget home) {
-    return MaterialApp(
-      title: 'NutriVitta Pro',
-      debugShowCheckedModeBanner: false,
-      theme: buildNvTheme(Brightness.light, accent: NvColors.teal),
-      darkTheme: buildNvTheme(Brightness.dark, accent: NvColors.teal),
-      home: home,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ProState>(
       future: _loading,
       builder: (context, snap) {
-        if (!snap.hasData) return _app(const Scaffold(body: Center(child: NvLogo(size: 88))));
-        return ProScope(state: snap.data!, child: _app(const _Root()));
+        if (!snap.hasData) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildNvTheme(Brightness.light, accent: NvColors.teal),
+            darkTheme: buildNvTheme(Brightness.dark, accent: NvColors.teal),
+            home: const Scaffold(body: Center(child: NvLogo(size: 88))),
+          );
+        }
+        final s = AppSettings.instance;
+        return ProScope(
+          state: snap.data!,
+          child: ListenableBuilder(
+            listenable: s,
+            builder: (context, _) => MaterialApp(
+              title: 'NutriVitta Pro',
+              debugShowCheckedModeBanner: false,
+              navigatorKey: updateNavigatorKey,
+              theme: s.lightTheme(),
+              darkTheme: s.darkTheme(),
+              themeMode: s.themeMode,
+              builder: (context, child) => s.applyTextScale(context, UpdateProgressBanner(child: child!)),
+              home: const UpdateWatcher(child: _Root()),
+            ),
+          ),
+        );
       },
     );
   }
