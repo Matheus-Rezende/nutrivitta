@@ -31,7 +31,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 
 ## Como funciona a conexão
 
-1. O paciente entra no NutriVitta com a conta Google e recebe um código único (Perfil > Nutricionistas), que pode trocar quando quiser.
+1. O paciente cria a conta no NutriVitta (e-mail e senha, com confirmação por e-mail) e recebe um código único (Perfil > Nutricionistas), que pode trocar quando quiser.
 2. O nutricionista digita esse código no NutriVitta Pro e envia o pedido. O e-mail do paciente não é mostrado nem gravado no banco.
 3. O app do paciente mostra o pedido ao abrir e, em segundo plano, confere mais ou menos a cada 15 minutos e mostra uma notificação.
 4. Se o paciente aceitar, o uid do nutricionista entra na lista `nutritionistUids` do perfil do paciente. As regras do banco liberam a leitura só para quem está nessa lista, e só o paciente a altera. O app do paciente mantém essa lista igual aos vínculos aceitos (se os dados do aparelho forem apagados, ela é refeita).
@@ -49,7 +49,12 @@ A notificação não é instantânea porque o envio de push pelo Firebase exige 
 
 1. **No aparelho do paciente**: o diário funciona sem internet e sincroniza depois.
 2. **Cloud Firestore** (plano gratuito Spark), em São Paulo: perfil, diário, metas, recados, medidas, anamnese, pedidos e fotos. As fotos são comprimidas (cerca de 720 px, 50 KB) e gravadas no próprio banco, porque o Firebase Storage exige o plano pago.
-3. **Google Drive do paciente**: cópia de segurança completa, na pasta reservada do app.
+
+## Contas
+
+- Cadastro com nome, e-mail e senha (pelo menos 8 caracteres) no Firebase Authentication, nos dois apps.
+- Depois do cadastro, o Firebase envia um link de confirmação (em português). O app fica na tela "Confirme o seu e-mail" e é liberado sozinho quando o link é aberto. As regras do banco também só aceitam contas com e-mail confirmado.
+- "Esqueci minha senha" na entrada e "Mudar a senha" no Perfil enviam um link para criar uma senha nova.
 
 Antes do primeiro uso com login, siga o [CONFIGURACAO.md](CONFIGURACAO.md). Sem essa configuração o app do paciente funciona só no aparelho ("Usar sem conta"), e o Pro não entra.
 
@@ -58,8 +63,8 @@ Antes do primeiro uso com login, siga o [CONFIGURACAO.md](CONFIGURACAO.md). Sem 
 ```
 packages/nutrivitta_core/   parte comum
   lib/src/models/           alimentos, diário, paciente (anamnese, medidas), vínculo
-  lib/src/cloud/            login Google + Firebase (REST), banco, backup no Drive
-  lib/src/widgets/          dia, resumo, peso, medidas, anamnese, metas, foto
+  lib/src/cloud/            conta (e-mail e senha) e banco no Firebase, pela API REST
+  lib/src/widgets/          entrar/criar conta, dia, resumo, peso, medidas, anamnese, metas, foto
   assets/                   tabela TACO e fontes Barlow
 apps/paciente/              NutriVitta
   lib/state/app_state.dart  dados locais e fila de envio
@@ -81,7 +86,6 @@ cd apps/pro && flutter run
 
 ## Limites desta versão
 
-- O login Google está ligado só no Android. No iOS os apps compilam; o do paciente funciona no modo local.
 - A verificação em segundo plano roda só no Android, e o próprio sistema pode atrasá-la em economia de bateria.
 - Editar o diário no mesmo dia em dois aparelhos ao mesmo tempo não é mesclado: vale o último envio.
 - Dados de alimentação e saúde são sensíveis pela LGPD. Antes de usar com pacientes reais, os apps precisam de política de privacidade e termo de consentimento.

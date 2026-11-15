@@ -5,15 +5,13 @@ Os dois apps usam o mesmo projeto Firebase, no plano gratuito **Spark**, que nã
 ## Já feito (13/11/2026)
 
 - Projeto **`nutrivitta`** criado (sem Analytics e sem Gemini).
-- **Authentication > Google** ativado, com o e-mail de suporte `cdf30000@gmail.com`.
+- **Authentication > E-mail/senha** ativado (14/11/2026). O login com Google, usado até a versão 0.5.1, continua ativado no console, mas os apps não o usam mais.
 - **Firestore** criado em `southamerica-east1` (São Paulo), no modo produção.
-- **Google Drive API** ativada no Google Cloud.
 
 Valores do projeto (nenhum é secreto):
 
 | Valor | Onde vai | Conteúdo |
 |---|---|---|
-| ID do cliente da Web | `GOOGLE_WEB_CLIENT_ID` | `1088570032787-0q7drle795jm7ndn3lf8apiog2tvlrct.apps.googleusercontent.com` |
 | ID do projeto | `FIREBASE_PROJECT_ID` | `nutrivitta` |
 | Chave de API da Web | `FIREBASE_API_KEY` | Google Cloud > APIs e serviços > Credenciais > "Browser key (auto created by Firebase)" > Exibir chave |
 
@@ -21,11 +19,11 @@ Valores do projeto (nenhum é secreto):
 
 ### 1. Publicar as regras do banco (feito em 14/11/2026)
 
-Firestore Database > **Regras**: apague o conteúdo, cole o arquivo [`firestore.rules`](firestore.rules) e clique em **Publicar**. Sem isso o app mostra "A nuvem recusou o acesso".
+Firestore Database > **Regras**: apague o conteúdo, cole o arquivo [`firestore.rules`](firestore.rules) e clique em **Publicar**. Sem isso o app mostra "A nuvem recusou o acesso". A versão que exige e-mail confirmado foi publicada em 14/11/2026.
 
 ### 2. Chave de assinatura (feito em 14/11/2026, SHA-1 `69:9F:9E:37:56:FB:DA:B0:1C:39:AB:8D:21:E8:CB:F8:A8:B2:ED:74`)
 
-O login Google só funciona em APKs assinados com uma chave cujo SHA-1 esteja cadastrado. Uma chave serve para os dois apps.
+A mesma chave assina os dois apps e precisa ser sempre a mesma, para que as atualizações instalem por cima.
 
 1. Gere a chave (uma vez só; guarde o arquivo e a senha em local seguro):
    ```
@@ -45,18 +43,15 @@ Em **Configurações do projeto > Geral > Seus apps > Adicionar app > Android**,
 | `com.nutrivitta.paciente` | NutriVitta |
 | `com.nutrivitta.pro` | NutriVitta Pro |
 
-Em cada um, informe o SHA-1 do passo 2. Não é preciso baixar o `google-services.json`: os apps usam a API REST. Para testar com `flutter run`, cadastre também o SHA-1 da chave de depuração da sua máquina (`~/.android/debug.keystore`, senha `android`, alias `androiddebugkey`).
+Não é preciso baixar o `google-services.json`: os apps usam a API REST. O SHA-1 só era necessário para o login com Google, que saiu na versão 0.6.0.
 
-### 4. Tela de permissão do Google
+### 4. E-mails de confirmação e de nova senha
 
-Google Cloud > **APIs e serviços > Tela de permissão OAuth**:
-- confira o nome do app e o e-mail de suporte;
-- adicione o escopo `.../auth/drive.appdata` (cópia no Drive do paciente);
-- enquanto estiver em modo **Teste**, só entram as contas em **Usuários de teste** (até 100). Para liberar a todos, publique o app nessa tela.
+Os apps pedem os e-mails em português. Para mudar o remetente ou o texto, use **Authentication > Modelos** no console. O plano gratuito envia os e-mails sem custo, com limite diário generoso para testes.
 
 ### 5. Valores no GitHub
 
-O ID do cliente da Web, a chave de API e o ID do projeto já estão em `packages/nutrivitta_core/lib/src/config.dart` (não são segredos: vão dentro dos apps; a proteção vem das regras do banco).
+A chave de API e o ID do projeto já estão em `packages/nutrivitta_core/lib/src/config.dart` (não são segredos: vão dentro dos apps; a proteção vem das regras do banco).
 
 No repositório, **Settings > Secrets and variables > Actions > Secrets**, crie:
 - `ANDROID_KEYSTORE_PASSWORD`: a senha da chave;
@@ -71,10 +66,10 @@ keyAlias=nutrivitta
 
 ## Conferir
 
-1. Instale o **NutriVitta** com uma conta Google e faça o cadastro de paciente.
-2. Instale o **NutriVitta Pro** com outra conta, crie o perfil e toque em **Adicionar paciente** com o código que aparece no NutriVitta, em Perfil > Nutricionistas.
+1. Instale o **NutriVitta**, toque em **Criar conta**, confirme o e-mail pelo link e faça o cadastro de paciente.
+2. Instale o **NutriVitta Pro**, crie outra conta (outro e-mail), confirme, crie o perfil e toque em **Adicionar paciente** com o código que aparece no NutriVitta, em Perfil > Nutricionistas.
 3. No NutriVitta, o pedido aparece no topo do diário (e vira notificação em até ~15 min com o app fechado). Aceite.
 4. No Pro, puxe a lista para atualizar e abra o paciente: diário, resumo, medidas, anamnese, metas e recado.
 5. No console, em **Firestore Database > Dados**, devem aparecer `users`, `codes`, `pros` e `links`.
 
-Se o login falhar logo após escolher a conta, o SHA-1 ou o ID do cliente da Web está errado.
+Se o app disser que o login por e-mail não foi ativado, confira **Authentication > Método de login > E-mail/senha**. Se o link de confirmação não chegar, veja a caixa de spam.
