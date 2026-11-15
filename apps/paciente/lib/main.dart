@@ -90,6 +90,9 @@ class _Root extends StatelessWidget {
         final Widget screen;
         if (account.signedIn && !account.verified) {
           screen = const VerifyEmailScreen();
+        } else if (account.reauth) {
+          // a senha foi trocada: entra de novo (os dados do aparelho continuam)
+          screen = const SignInAgainScreen();
         } else if (state.onboarded) {
           screen = const PatientShell();
         } else if (account.signedIn || state.localMode) {

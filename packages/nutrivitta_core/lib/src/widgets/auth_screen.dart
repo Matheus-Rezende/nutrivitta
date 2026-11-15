@@ -419,7 +419,8 @@ Future<void> changePassword(BuildContext context) async {
   final account = Account.instance;
   final ok = await confirm(context,
       title: 'Mudar a senha?',
-      text: 'Vamos enviar para ${account.email} um link para você criar uma senha nova.',
+      text: 'Vamos enviar para ${account.email} um link para você criar uma senha nova. Depois da troca, '
+          'a conta sai deste e de outros aparelhos, e é preciso entrar de novo com a senha nova.',
       ok: 'Enviar link');
   if (!ok) return;
   final message = await account.resetPassword(account.email);

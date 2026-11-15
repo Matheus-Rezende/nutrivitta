@@ -40,11 +40,15 @@ class FirebaseSession {
 
 /// Dados públicos da conta no Firebase Authentication.
 class AuthUser {
-  const AuthUser({required this.email, required this.name, required this.verified});
+  const AuthUser({required this.email, required this.name, required this.verified, this.credentialsAt = 0});
 
   final String email;
   final String name;
   final bool verified;
+
+  /// Momento (em milissegundos) da última troca de senha ou revogação das
+  /// sessões. Quando muda, as sessões abertas antes deixam de valer.
+  final int credentialsAt;
 }
 
 /// Mensagem em português para os erros do Firebase Authentication.
@@ -66,7 +70,7 @@ String authMessage(Object error) {
   if (b.contains('TOO_MANY_ATTEMPTS_TRY_LATER')) return 'Muitas tentativas. Espere alguns minutos e tente de novo.';
   if (b.contains('OPERATION_NOT_ALLOWED')) return 'O login por e-mail ainda não foi ativado no servidor.';
   if (b.contains('TOKEN_EXPIRED') || b.contains('USER_NOT_FOUND') || b.contains('INVALID_REFRESH_TOKEN')) {
-    return 'Sua sessão terminou. Entre de novo.';
+    return 'Sua sessão terminou (a senha pode ter sido alterada). Entre de novo.';
   }
   return 'Não foi possível concluir agora. Tente de novo em instantes.';
 }
@@ -129,6 +133,10 @@ class FirebaseAuthRest {
       email: '${u['email'] ?? ''}'.toLowerCase(),
       name: '${u['displayName'] ?? ''}',
       verified: u['emailVerified'] == true,
+      credentialsAt: [
+        int.tryParse('${u['passwordUpdatedAt'] ?? ''}'.split('.').first) ?? 0,
+        (int.tryParse('${u['validSince'] ?? ''}') ?? 0) * 1000,
+      ].reduce((a, b) => a > b ? a : b),
     );
   }
 

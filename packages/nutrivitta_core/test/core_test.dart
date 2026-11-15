@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 FoodEntry _entry(String id, DateTime time, Meal meal, double grams, Nutrients per100) => FoodEntry(
@@ -153,5 +155,20 @@ void main() {
     expect(authMessage(CloudException(400, 'WEAK_PASSWORD : Password should be at least 6 characters')),
         contains('8 caracteres'));
     expect(authMessage(Exception('sem rede')), contains('internet'));
+  });
+
+  test('lookup lê a data da última troca de senha', () async {
+    final client = MockClient((req) async {
+      expect(req.url.path, endsWith('accounts:lookup'));
+      expect(req.headers['X-Firebase-Locale'], 'pt-BR');
+      return http.Response(
+          '{"users":[{"email":"Ana@X.com","displayName":"Ana","emailVerified":true,'
+          '"passwordUpdatedAt":1763170000000,"validSince":"1763170005"}]}',
+          200);
+    });
+    final u = await FirebaseAuthRest('k', client: client).lookup('t');
+    expect(u.email, 'ana@x.com');
+    expect(u.verified, isTrue);
+    expect(u.credentialsAt, 1763170005000);
   });
 }

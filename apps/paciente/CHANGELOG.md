@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.6.1
+
+- **Troca de senha encerra as sessões**: depois de criar uma senha nova, a conta sai deste e de qualquer outro aparelho em até meio minuto com o app aberto (ou assim que o app voltar para a frente), e o app pede para entrar de novo com a senha nova.
+
 ## 0.6.0
 
 - **Conta com e-mail e senha**: o login com a Conta Google saiu. Na primeira tela, toque em **Criar conta**, informe nome, e-mail e senha (pelo menos 8 caracteres) e confirme pelo link enviado ao seu e-mail. O app é liberado assim que o e-mail for confirmado.

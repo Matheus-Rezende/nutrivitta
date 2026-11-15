@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
@@ -8,7 +8,11 @@ import 'firebase_rest.dart';
 
 /// Conta do NutriVitta: cadastro e login com e-mail e senha no Firebase
 /// Authentication. O app só libera os dados depois que o e-mail é confirmado.
-class Account extends ChangeNotifier {
+///
+/// Quando a senha é trocada (em qualquer aparelho), as sessões abertas antes
+/// são encerradas: o app confere com o servidor ao voltar para a frente e a
+/// cada [watchEvery], e pede para entrar de novo.
+class Account extends ChangeNotifier with WidgetsBindingObserver {
   Account._();
 
   static final instance = Account._();
@@ -18,6 +22,11 @@ class Account extends ChangeNotifier {
   static const _kEmail = 'nv_fb_email_v1';
   static const _kName = 'nv_fb_name_v1';
   static const _kVerified = 'nv_fb_verified_v1';
+  static const _kCredAt = 'nv_fb_cred_at_v1';
+  static const _kReauth = 'nv_fb_reauth_v1';
+
+  /// Intervalo da conferência da sessão com o app aberto.
+  static const watchEvery = Duration(seconds: 30);
 
   /// Tamanho mínimo da senha.
   static const minPassword = 8;
@@ -30,7 +39,15 @@ class Account extends ChangeNotifier {
   String _email = '';
   String _name = '';
   bool _verified = false;
+  int _credAt = 0;
   Future<FirebaseSession?>? _restoring;
+  bool _observing = false;
+  bool _checkingSession = false;
+  DateTime? _lastSessionCheck;
+  Timer? _watch;
+
+  /// A sessão foi encerrada (senha trocada): mostrar a tela de entrar.
+  bool reauth = false;
 
   bool busy = false;
   String? error;
@@ -62,14 +79,23 @@ class Account extends ChangeNotifier {
   /// Abre a conta guardada neste aparelho, se houver.
   Future<void> init() async {
     final p = _prefs ??= await SharedPreferences.getInstance();
+    if (!_observing) {
+      _observing = true;
+      WidgetsBinding.instance.addObserver(this);
+    }
+    reauth = p.getBool(_kReauth) ?? false;
+    if (reauth) error = _passwordChanged;
     final refresh = p.getString(_kRefresh);
     if (refresh == null || refresh.isEmpty) return;
     _uid = p.getString(_kUid);
     _email = p.getString(_kEmail) ?? '';
     _name = p.getString(_kName) ?? '';
     _verified = p.getBool(_kVerified) ?? false;
+    _credAt = p.getInt(_kCredAt) ?? 0;
     if (_uid == null) return;
     notifyListeners();
+    _startWatch();
+    unawaited(checkSession(force: true));
     if (_verified) {
       unawaited(Future(() async => onSignedIn?.call()));
     } else {
@@ -88,6 +114,8 @@ class Account extends ChangeNotifier {
     await p.setString(_kEmail, _email);
     await p.setString(_kName, _name);
     await p.setBool(_kVerified, _verified);
+    await p.setInt(_kCredAt, _credAt);
+    await p.setBool(_kReauth, reauth);
   }
 
   Future<String?> _run(Future<void> Function() action) async {
@@ -119,7 +147,10 @@ class Account extends ChangeNotifier {
       _email = _clean(email);
       _name = name.trim();
       _verified = false;
+      _credAt = 0;
+      reauth = false;
       await _rememberUser();
+      _startWatch();
       try {
         await _auth.setDisplayName(s.idToken, _name);
       } catch (e) {
@@ -144,7 +175,10 @@ class Account extends ChangeNotifier {
       _email = u.email.isEmpty ? _clean(email) : u.email;
       _name = u.name;
       _verified = u.verified;
+      _credAt = u.credentialsAt;
+      reauth = false;
       await _rememberUser();
+      _startWatch();
     });
     if (message == null && _verified) await onSignedIn?.call();
     return message;
@@ -172,6 +206,7 @@ class Account extends ChangeNotifier {
       if (t == null) return false;
       final u = await _auth.lookup(t);
       if (u.name.isNotEmpty) _name = u.name;
+      if (_credAt == 0) _credAt = u.credentialsAt;
       if (!u.verified) return false;
       _session = await _auth.restore(_session!.refreshToken);
       await _remember(_session!);
@@ -189,18 +224,89 @@ class Account extends ChangeNotifier {
   /// Sai da conta neste aparelho. Os dados continuam na nuvem.
   Future<void> signOut() async {
     final p = _prefs ??= await SharedPreferences.getInstance();
-    for (final k in [_kRefresh, _kUid, _kEmail, _kName, _kVerified]) {
+    for (final k in [_kRefresh, _kUid, _kEmail, _kName, _kVerified, _kCredAt, _kReauth]) {
       await p.remove(k);
     }
+    _stopWatch();
     final had = _uid != null;
     _session = null;
     _uid = null;
     _email = '';
     _name = '';
     _verified = false;
+    _credAt = 0;
+    reauth = false;
     error = null;
     if (had) onSignedOut?.call();
     notifyListeners();
+  }
+
+  static const _passwordChanged = 'Sua senha foi alterada ou a sessão foi encerrada. Entre de novo com a senha atual.';
+
+  /// Encerra a sessão neste aparelho e pede o login de novo (senha trocada).
+  Future<void> _endSession() async {
+    if (!signedIn) return;
+    await signOut();
+    reauth = true;
+    error = _passwordChanged;
+    await (_prefs ??= await SharedPreferences.getInstance()).setBool(_kReauth, true);
+    notifyListeners();
+  }
+
+  /// Quem estava usando o app sem conta segue assim, sem entrar de novo.
+  Future<void> dismissReauth() async {
+    reauth = false;
+    error = null;
+    await (_prefs ??= await SharedPreferences.getInstance()).remove(_kReauth);
+    notifyListeners();
+  }
+
+  /// Confere com o servidor se a senha foi trocada depois deste login; se
+  /// foi, encerra a sessão. Sem internet, não faz nada.
+  Future<void> checkSession({bool force = false}) async {
+    if (!signedIn || busy || _checkingSession) return;
+    final last = _lastSessionCheck;
+    if (!force && last != null && DateTime.now().difference(last) < const Duration(seconds: 20)) return;
+    _checkingSession = true;
+    _lastSessionCheck = DateTime.now();
+    try {
+      final t = await token();
+      if (t == null || !signedIn) return;
+      final u = await _auth.lookup(t);
+      if (_credAt == 0) {
+        _credAt = u.credentialsAt;
+        await _rememberUser();
+      } else if (u.credentialsAt > _credAt) {
+        await _endSession();
+      }
+    } on CloudException catch (e) {
+      debugPrint('Conferência da sessão: $e');
+      if (e.status == 400) await _endSession();
+    } catch (e) {
+      debugPrint('Conferência da sessão: $e');
+    } finally {
+      _checkingSession = false;
+    }
+  }
+
+  void _startWatch() {
+    _watch?.cancel();
+    _watch = Timer.periodic(watchEvery, (_) => unawaited(checkSession()));
+  }
+
+  void _stopWatch() {
+    _watch?.cancel();
+    _watch = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && signedIn) {
+      _startWatch();
+      unawaited(checkSession(force: true));
+    } else if (state == AppLifecycleState.paused) {
+      _stopWatch();
+    }
   }
 
   /// Token da sessão do Firebase, renovado quando está para vencer.
@@ -222,10 +328,7 @@ class Account extends ChangeNotifier {
     } on CloudException catch (e) {
       debugPrint('Renovação da sessão: $e');
       // conta apagada, desativada ou senha trocada: pede o login de novo
-      if (e.status == 400) {
-        error = authMessage(e);
-        await signOut();
-      }
+      if (e.status == 400) await _endSession();
       return null;
     } catch (e) {
       debugPrint('Renovação da sessão: $e');
@@ -238,7 +341,7 @@ class Account extends ChangeNotifier {
   static Future<(String, Firestore)?> background(SharedPreferences prefs) async {
     final refresh = prefs.getString(_kRefresh);
     if (refresh == null || refresh.isEmpty || kFirebaseApiKey.isEmpty || kFirebaseProjectId.isEmpty) return null;
-    if (!(prefs.getBool(_kVerified) ?? false)) return null;
+    if (!(prefs.getBool(_kVerified) ?? false) || (prefs.getBool(_kReauth) ?? false)) return null;
     final s = await FirebaseAuthRest(kFirebaseApiKey).restore(refresh);
     await prefs.setString(_kRefresh, s.refreshToken);
     await prefs.setString(_kUid, s.uid);

@@ -31,6 +31,25 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
+/// Depois da troca de senha: entrar de novo, ou seguir sem conta neste aparelho.
+class SignInAgainScreen extends StatelessWidget {
+  const SignInAgainScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AuthScreen(
+      intro: _intro,
+      footer: [
+        const Divider(),
+        TextButton(
+          onPressed: () => Account.instance.dismissReauth(),
+          child: const Text('Continuar sem conta neste aparelho'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Entrar ou criar conta a partir do app (quem começou sem conta).
 Future<void> openAuth(BuildContext context) {
   return Navigator.push(
