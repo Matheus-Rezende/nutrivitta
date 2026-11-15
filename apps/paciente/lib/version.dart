@@ -1,7 +1,7 @@
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 /// Versão do app. Precisa ser igual à do pubspec.yaml (um teste confere).
-const kAppVersion = '0.5.0';
+const kAppVersion = '0.5.1';
 
 const kApp = AppInfo(
   id: 'paciente',

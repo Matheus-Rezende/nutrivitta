@@ -119,12 +119,6 @@ class Alerts {
     }
   }
 
-  /// Notificação de teste (Configurações).
-  static Future<void> test(String appName) async {
-    final now = DateTime.now().toIso8601String();
-    await deliver([Alert('teste:$now', 'Notificação de teste', 'As notificações do $appName estão funcionando.')]);
-  }
-
   static Future<bool> enabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_kEnabled) ?? false;

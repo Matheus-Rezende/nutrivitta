@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.5.1
+
+- Configurações mais enxutas: saíram o botão de notificação de teste e o item Código-fonte.
+
 ## 0.5.0
 
 - **Pedido de conexão pelo código do paciente**: em **Adicionar paciente**, digite o código que o paciente encontra no app NutriVitta (Perfil > Nutricionistas). O e-mail do paciente não é mais usado nem mostrado.

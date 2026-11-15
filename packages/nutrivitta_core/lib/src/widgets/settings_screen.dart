@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../alerts.dart';
 import '../app_info.dart';
@@ -202,17 +201,11 @@ class _NotificationsGroupState extends State<_NotificationsGroup> with WidgetsBi
         subtitle: Text('Com o app aberto, a cada 15 segundos. Com o app fechado, o Android verifica mais ou menos '
             'a cada 15 minutos (pode atrasar em economia de bateria).'),
       ),
-      const SettingsDivider(),
-      ListTile(
-        leading: const Icon(Icons.send_outlined),
-        title: const Text('Enviar notificação de teste'),
-        onTap: () => Alerts.test(app.name),
-      ),
     ]);
   }
 }
 
-/// Informações do aplicativo: versão, novidades, privacidade, fontes e licenças.
+/// Informações do aplicativo: versão, novidades, privacidade e licenças.
 class AboutGroup extends StatelessWidget {
   const AboutGroup({super.key, required this.app});
 
@@ -253,17 +246,6 @@ class AboutGroup extends StatelessWidget {
         title: Text('Tabela de alimentos'),
         subtitle: Text('TACO - Tabela Brasileira de Composição de Alimentos, 4ª edição (NEPA/UNICAMP, 2011). '
             'Valores por 100 g.'),
-      ),
-      const SettingsDivider(),
-      ListTile(
-        leading: const Icon(Icons.code_rounded),
-        title: const Text('Código-fonte'),
-        subtitle: const Text('github.com/${AppInfo.repo}'),
-        trailing: const Icon(Icons.copy_rounded, size: 18),
-        onTap: () async {
-          await Clipboard.setData(const ClipboardData(text: 'https://github.com/${AppInfo.repo}'));
-          if (context.mounted) showSnack(context, 'Endereço copiado.');
-        },
       ),
       const SettingsDivider(),
       ListTile(

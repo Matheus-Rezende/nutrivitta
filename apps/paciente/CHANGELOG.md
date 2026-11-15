@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.5.1
+
+- Configurações mais enxutas: saíram o botão de notificação de teste e o item Código-fonte.
+
 ## 0.5.0
 
 - **Código do paciente**: em **Perfil > Nutricionistas** aparece o seu código (ex.: K7M2-QX9P), com botões para copiar e para gerar um novo. O nutricionista usa o código para enviar o pedido de conexão, e o seu e-mail não fica mais visível para ele.
