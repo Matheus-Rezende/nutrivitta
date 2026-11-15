@@ -11,11 +11,13 @@ rules_version = '2';
 //   o diário nem as fotos.
 // - A anamnese só pode ser editada pelo nutricionista com permissão do
 //   paciente, que vale por tempo limitado (links/{pro}_{paciente}.anamnesisUntil).
+// - Só contas com o e-mail confirmado acessam o banco.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Conta com e-mail confirmado (cadastro por e-mail e senha).
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     function isMe(uid) {

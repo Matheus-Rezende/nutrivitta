@@ -6,13 +6,12 @@ import '../sync.dart';
 import '../version.dart';
 import 'connections_screen.dart';
 import 'onboarding_screen.dart';
+import 'welcome_screen.dart';
 
 /// Cartão da conta: quem está conectado, estado da sincronização e sair.
 /// Usado no perfil do paciente e do nutricionista.
 class AccountCard extends StatelessWidget {
   const AccountCard({super.key});
-
-  String _when(DateTime? t) => t == null ? 'ainda não feita' : '${friendlyDate(t).toLowerCase()} às ${hourMinute(t)}';
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +31,8 @@ class AccountCard extends StatelessWidget {
                 Text('Conta', style: text.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                  account.supported
-                      ? 'Você não está conectado. Os dados estão só neste aparelho.'
-                      : 'Login Google indisponível neste aparelho ou ainda não configurado. Os dados estão só aqui.',
+                  'Você está usando o app sem conta. Os dados estão só neste aparelho. Com uma conta, ficam salvos '
+                  'online e o seu nutricionista pode acompanhar.',
                   style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 if (account.error != null) ...[
@@ -44,9 +42,9 @@ class AccountCard extends StatelessWidget {
                 if (account.supported) ...[
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: account.busy ? null : () => account.signIn(),
+                    onPressed: account.busy ? null : () => openAuth(context),
                     icon: const Icon(Icons.login),
-                    label: const Text('Entrar com o Google'),
+                    label: const Text('Entrar ou criar conta'),
                   ),
                 ],
               ],
@@ -72,7 +70,7 @@ class AccountCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(account.name.isEmpty ? 'Conta Google' : account.name, style: text.titleMedium),
+                        Text(account.name.isEmpty ? 'Sua conta' : account.name, style: text.titleMedium),
                         Text(account.email, style: text.bodySmall),
                       ],
                     ),
@@ -84,11 +82,8 @@ class AccountCard extends StatelessWidget {
                 icon: account.online ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
                 text: account.online
                     ? (pending == 0 ? 'Dados online em dia' : 'Enviando alterações ($pending pendentes)')
-                    : (account.firebaseConfigured
-                        ? 'Sem conexão com a nuvem do app'
-                        : 'Nuvem do app não configurada: só a cópia no Drive está ativa'),
+                    : 'Sem conexão com a nuvem do app',
               ),
-              _StatusLine(icon: Icons.add_to_drive_outlined, text: 'Cópia no Google Drive: ${_when(sync.lastDriveBackup)}'),
               if (sync.message != null) ...[
                 const SizedBox(height: 4),
                 Text(sync.message!, style: text.bodySmall),
@@ -124,6 +119,12 @@ class AccountCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                onPressed: account.busy ? null : () => changePassword(context),
+                icon: const Icon(Icons.password_rounded),
+                label: const Text('Mudar a senha'),
               ),
             ],
           ),
@@ -300,7 +301,7 @@ Future<void> openSettings(BuildContext context) {
                   ctx,
                   title: 'Apagar os dados deste aparelho?',
                   text: 'O diário, as medidas e o perfil saem deste celular. '
-                      '${Account.instance.signedIn ? 'O que já foi sincronizado continua na sua conta e volta quando você entrar de novo.' : 'Sem conta Google, não dá para recuperar.'}'
+                      '${Account.instance.signedIn ? 'O que já foi sincronizado continua na sua conta e volta quando você entrar de novo.' : 'Sem conta, não dá para recuperar.'}'
                       '${pending ? ' Há alterações ainda não enviadas, que serão perdidas.' : ''}',
                   ok: 'Apagar',
                 );

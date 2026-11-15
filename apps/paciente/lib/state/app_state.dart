@@ -420,7 +420,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Tudo o que vai para a cópia no Drive.
+  /// Todos os dados do aparelho num único mapa.
   Map<String, dynamic> exportBackup() => {
         'app': 'NutriVitta',
         'format': 1,
@@ -434,7 +434,7 @@ class AppState extends ChangeNotifier {
         'days': {for (final d in _days.values) d.date: d.toJson()},
       };
 
-  /// Restaura os dados (do Drive ou do banco online) neste aparelho.
+  /// Restaura os dados (vindos do banco online) neste aparelho.
   Future<void> importBackup(Map<String, dynamic> b, {bool markDirty = false}) async {
     final profile = b['profile'];
     if (profile is! Map) return;

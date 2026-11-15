@@ -55,7 +55,7 @@ class ProProfileScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(account.name.isEmpty ? 'Conta Google' : account.name, style: text.titleMedium),
+                          Text(account.name.isEmpty ? 'Sua conta' : account.name, style: text.titleMedium),
                           Text(account.email, style: text.bodySmall),
                         ],
                       ),
@@ -78,6 +78,12 @@ class ProProfileScreen extends StatelessWidget {
                   },
                   icon: const Icon(Icons.logout),
                   label: const Text('Sair'),
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: () => changePassword(context),
+                  icon: const Icon(Icons.password_rounded),
+                  label: const Text('Mudar a senha'),
                 ),
               ],
             ),

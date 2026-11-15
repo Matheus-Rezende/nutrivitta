@@ -1,16 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
-import 'drive_backup.dart';
 import 'firebase_rest.dart';
 
-/// Conta do NutriVitta: login com o Google e sessão do Firebase.
-/// O app do paciente também pede acesso à pasta do app no Google Drive.
+/// Conta do NutriVitta: cadastro e login com e-mail e senha no Firebase
+/// Authentication. O app só libera os dados depois que o e-mail é confirmado.
 class Account extends ChangeNotifier {
   Account._();
 
@@ -18,179 +15,222 @@ class Account extends ChangeNotifier {
 
   static const _kRefresh = 'nv_fb_refresh_v1';
   static const _kUid = 'nv_fb_uid_v1';
-  static const _kAuto = 'nv_auto_signin_v1';
+  static const _kEmail = 'nv_fb_email_v1';
+  static const _kName = 'nv_fb_name_v1';
+  static const _kVerified = 'nv_fb_verified_v1';
+
+  /// Tamanho mínimo da senha.
+  static const minPassword = 8;
 
   final _auth = FirebaseAuthRest(kFirebaseApiKey);
 
-  GoogleSignInAccount? user;
   FirebaseSession? _session;
   SharedPreferences? _prefs;
-  bool _initialized = false;
-  Future<void>? _handling;
-
-  /// Escopos extras pedidos no login (ex.: Google Drive no app do paciente).
-  List<String> scopes = const [];
+  String? _uid;
+  String _email = '';
+  String _name = '';
+  bool _verified = false;
+  Future<FirebaseSession?>? _restoring;
 
   bool busy = false;
   String? error;
 
-  /// Chamado quando a conta entra (login manual ou silencioso ao abrir o app).
+  /// Chamado quando a conta entra já confirmada (login ou ao abrir o app).
   Future<void> Function()? onSignedIn;
 
   /// Chamado quando a conta sai.
   VoidCallback? onSignedOut;
 
-  bool get googleConfigured => kGoogleWebClientId.isNotEmpty;
   bool get firebaseConfigured => kFirebaseApiKey.isNotEmpty && kFirebaseProjectId.isNotEmpty;
 
-  /// Login disponível neste aparelho (Android com o cliente configurado).
-  bool get supported => !kIsWeb && Platform.isAndroid && googleConfigured;
+  /// Cadastro e login disponíveis (o servidor está configurado).
+  bool get supported => firebaseConfigured;
 
-  bool get signedIn => user != null;
+  /// Há uma conta neste aparelho (confirmada ou não).
+  bool get signedIn => _uid != null;
 
-  /// Conectado ao banco online.
-  bool get online => signedIn && _session != null;
+  /// E-mail já confirmado pelo link.
+  bool get verified => _verified;
 
-  /// Identificador da conta: o do Firebase, ou o do Google se o Firebase não estiver configurado.
-  String? get uid => _session?.uid ?? (user == null ? null : 'g_${user!.id}');
+  /// Pode usar o banco online: conta com e-mail confirmado.
+  bool get online => signedIn && _verified;
 
-  String get name => user?.displayName ?? '';
-  String get email => (user?.email ?? '').toLowerCase();
+  String? get uid => _uid;
+  String get name => _name;
+  String get email => _email;
 
-  /// Tentar o login silencioso ao abrir o app (desligado quando a pessoa sai da conta).
-  bool get autoSignIn => _prefs?.getBool(_kAuto) ?? false;
-
-  Future<void> init({List<String> scopes = const []}) async {
-    this.scopes = scopes;
-    _prefs ??= await SharedPreferences.getInstance();
-    if (!supported || _initialized) return;
-    _initialized = true;
-    try {
-      final g = GoogleSignIn.instance;
-      await g.initialize(serverClientId: kGoogleWebClientId);
-      g.authenticationEvents.listen(_onAuthEvent, onError: (Object e) {
-        debugPrint('Login Google: $e');
-      });
-      if (autoSignIn) unawaited(g.attemptLightweightAuthentication());
-    } catch (e) {
-      debugPrint('Falha ao iniciar o login Google: $e');
-    }
-  }
-
-  Future<void> _onAuthEvent(GoogleSignInAuthenticationEvent event) async {
-    switch (event) {
-      case GoogleSignInAuthenticationEventSignIn(user: final account):
-        // durante o login manual, signIn() cuida de tudo
-        if (busy) return;
-        await _handle(account);
-        await onSignedIn?.call();
-      case GoogleSignInAuthenticationEventSignOut():
-        _clear();
-    }
-  }
-
-  /// Guarda a conta e abre a sessão no Firebase (uma vez por conta).
-  Future<void> _handle(GoogleSignInAccount account) {
-    if (user?.id == account.id && (_session != null || !firebaseConfigured)) return Future.value();
-    return _handling ??= _open(account).whenComplete(() => _handling = null);
-  }
-
-  Future<void> _open(GoogleSignInAccount account) async {
-    user = account;
-    if (firebaseConfigured) {
-      try {
-        final idToken = account.authentication.idToken;
-        if (idToken == null) throw StateError('O Google não devolveu o token de identidade.');
-        _session = await _auth.signInWithGoogle(idToken);
-        await _remember(_session!);
-        error = null;
-      } catch (e) {
-        debugPrint('Sessão Firebase: $e');
-        _session = null;
-        error = 'Não foi possível conectar à nuvem do NutriVitta. Confira a internet e tente de novo.';
-      }
-    }
-    await _prefs?.setBool(_kAuto, true);
+  /// Abre a conta guardada neste aparelho, se houver.
+  Future<void> init() async {
+    final p = _prefs ??= await SharedPreferences.getInstance();
+    final refresh = p.getString(_kRefresh);
+    if (refresh == null || refresh.isEmpty) return;
+    _uid = p.getString(_kUid);
+    _email = p.getString(_kEmail) ?? '';
+    _name = p.getString(_kName) ?? '';
+    _verified = p.getBool(_kVerified) ?? false;
+    if (_uid == null) return;
     notifyListeners();
+    if (_verified) {
+      unawaited(Future(() async => onSignedIn?.call()));
+    } else {
+      unawaited(checkVerified());
+    }
   }
 
   Future<void> _remember(FirebaseSession s) async {
-    await _prefs?.setString(_kRefresh, s.refreshToken);
-    await _prefs?.setString(_kUid, s.uid);
+    final p = _prefs ??= await SharedPreferences.getInstance();
+    await p.setString(_kRefresh, s.refreshToken);
+    await p.setString(_kUid, s.uid);
   }
 
-  /// Entra com a conta Google (e pede os escopos extras, se houver).
-  Future<bool> signIn() async {
-    if (!supported || busy) return false;
+  Future<void> _rememberUser() async {
+    final p = _prefs ??= await SharedPreferences.getInstance();
+    await p.setString(_kEmail, _email);
+    await p.setString(_kName, _name);
+    await p.setBool(_kVerified, _verified);
+  }
+
+  Future<String?> _run(Future<void> Function() action) async {
+    if (busy) return null;
     busy = true;
     error = null;
     notifyListeners();
+    String? message;
     try {
-      final account = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
-      await _handle(account);
-      if (scopes.isNotEmpty) {
-        try {
-          await account.authorizationClient.authorizeScopes(scopes);
-        } catch (e) {
-          debugPrint('Escopos não autorizados: $e');
-        }
-      }
-      busy = false;
-      notifyListeners();
-      await onSignedIn?.call();
-      return true;
-    } on GoogleSignInException catch (e) {
-      if (e.code != GoogleSignInExceptionCode.canceled) {
-        error = 'Não foi possível entrar: ${e.description ?? e.code.name}';
-      }
+      await action();
     } catch (e) {
-      error = 'Não foi possível entrar: $e';
+      debugPrint('Conta: $e');
+      message = authMessage(e);
     }
     busy = false;
     notifyListeners();
-    return false;
+    return message;
+  }
+
+  static String _clean(String email) => email.trim().toLowerCase();
+
+  /// Cria a conta e envia o e-mail de confirmação. Devolve a mensagem de erro, ou null.
+  Future<String?> register({required String name, required String email, required String password}) {
+    return _run(() async {
+      final s = await _auth.signUp(_clean(email), password);
+      _session = s;
+      await _remember(s);
+      _uid = s.uid;
+      _email = _clean(email);
+      _name = name.trim();
+      _verified = false;
+      await _rememberUser();
+      try {
+        await _auth.setDisplayName(s.idToken, _name);
+      } catch (e) {
+        debugPrint('Nome da conta: $e');
+      }
+      try {
+        await _auth.sendVerification(s.idToken);
+      } catch (e) {
+        debugPrint('E-mail de confirmação: $e');
+      }
+    });
+  }
+
+  /// Entra com e-mail e senha. Devolve a mensagem de erro, ou null.
+  Future<String?> signIn({required String email, required String password}) async {
+    final message = await _run(() async {
+      final s = await _auth.signInWithPassword(_clean(email), password);
+      _session = s;
+      await _remember(s);
+      final u = await _auth.lookup(s.idToken);
+      _uid = s.uid;
+      _email = u.email.isEmpty ? _clean(email) : u.email;
+      _name = u.name;
+      _verified = u.verified;
+      await _rememberUser();
+    });
+    if (message == null && _verified) await onSignedIn?.call();
+    return message;
+  }
+
+  /// Envia de novo o link de confirmação. Devolve a mensagem de erro, ou null.
+  Future<String?> resendVerification() {
+    return _run(() async {
+      final t = await token();
+      if (t == null) throw StateError('sem sessão');
+      await _auth.sendVerification(t);
+    });
+  }
+
+  /// Envia o link para criar uma senha nova. Devolve a mensagem de erro, ou null.
+  Future<String?> resetPassword(String email) => _run(() => _auth.sendPasswordReset(_clean(email)));
+
+  /// Confere no servidor se o e-mail já foi confirmado. Quando foi, renova a
+  /// sessão (o banco só aceita a sessão emitida depois da confirmação) e libera o app.
+  Future<bool> checkVerified() async {
+    if (!signedIn) return false;
+    if (_verified) return true;
+    try {
+      final t = await token();
+      if (t == null) return false;
+      final u = await _auth.lookup(t);
+      if (u.name.isNotEmpty) _name = u.name;
+      if (!u.verified) return false;
+      _session = await _auth.restore(_session!.refreshToken);
+      await _remember(_session!);
+      _verified = true;
+      await _rememberUser();
+      notifyListeners();
+      await onSignedIn?.call();
+      return true;
+    } catch (e) {
+      debugPrint('Confirmação do e-mail: $e');
+      return false;
+    }
   }
 
   /// Sai da conta neste aparelho. Os dados continuam na nuvem.
   Future<void> signOut() async {
-    await _prefs?.setBool(_kAuto, false);
-    await _prefs?.remove(_kRefresh);
-    await _prefs?.remove(_kUid);
-    try {
-      await GoogleSignIn.instance.signOut();
-    } catch (_) {}
-    _clear();
-  }
-
-  void _clear() {
-    if (user == null && _session == null) return;
-    user = null;
+    final p = _prefs ??= await SharedPreferences.getInstance();
+    for (final k in [_kRefresh, _kUid, _kEmail, _kName, _kVerified]) {
+      await p.remove(k);
+    }
+    final had = _uid != null;
     _session = null;
-    onSignedOut?.call();
+    _uid = null;
+    _email = '';
+    _name = '';
+    _verified = false;
+    error = null;
+    if (had) onSignedOut?.call();
     notifyListeners();
   }
 
   /// Token da sessão do Firebase, renovado quando está para vencer.
   Future<String?> token() async {
     final s = _session;
-    if (s == null) return null;
-    if (s.valid) return s.idToken;
+    if (s != null && s.valid) return s.idToken;
+    final fresh = await (_restoring ??= _restore().whenComplete(() => _restoring = null));
+    return fresh?.idToken;
+  }
+
+  Future<FirebaseSession?> _restore() async {
+    final p = _prefs ??= await SharedPreferences.getInstance();
+    final refresh = _session?.refreshToken ?? p.getString(_kRefresh);
+    if (refresh == null || refresh.isEmpty) return null;
     try {
-      _session = await _auth.refresh(s);
+      _session = await _auth.restore(refresh);
       await _remember(_session!);
-      return _session!.idToken;
+      return _session;
+    } on CloudException catch (e) {
+      debugPrint('Renovação da sessão: $e');
+      // conta apagada, desativada ou senha trocada: pede o login de novo
+      if (e.status == 400) {
+        error = authMessage(e);
+        await signOut();
+      }
+      return null;
     } catch (e) {
       debugPrint('Renovação da sessão: $e');
       return null;
     }
-  }
-
-  /// Acesso à pasta do app no Google Drive; null se a pessoa não autorizou.
-  Future<DriveBackup?> drive({bool prompt = false}) async {
-    final u = user;
-    if (u == null || !scopes.contains(DriveBackup.scope)) return null;
-    final h = await u.authorizationClient.authorizationHeaders(const [DriveBackup.scope], promptIfNecessary: prompt);
-    return h == null ? null : DriveBackup(h);
   }
 
   /// Sessão para uso fora da tela (verificação em segundo plano): usa o token
@@ -198,6 +238,7 @@ class Account extends ChangeNotifier {
   static Future<(String, Firestore)?> background(SharedPreferences prefs) async {
     final refresh = prefs.getString(_kRefresh);
     if (refresh == null || refresh.isEmpty || kFirebaseApiKey.isEmpty || kFirebaseProjectId.isEmpty) return null;
+    if (!(prefs.getBool(_kVerified) ?? false)) return null;
     final s = await FirebaseAuthRest(kFirebaseApiKey).restore(refresh);
     await prefs.setString(_kRefresh, s.refreshToken);
     await prefs.setString(_kUid, s.uid);

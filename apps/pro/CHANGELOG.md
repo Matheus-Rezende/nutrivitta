@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.6.0
+
+- **Conta com e-mail e senha**: o login com a Conta Google saiu. Na primeira tela, toque em **Criar conta**, informe nome, e-mail e senha (pelo menos 8 caracteres) e confirme pelo link enviado ao seu e-mail. O app é liberado assim que o e-mail for confirmado.
+- **Esqueci minha senha** na tela de entrada e **Mudar a senha** no Perfil enviam um link para criar uma senha nova.
+- Quem usava a Conta Google precisa criar uma conta nova e enviar de novo os pedidos de conexão aos pacientes.
+
 ## 0.5.1
 
 - Configurações mais enxutas: saíram o botão de notificação de teste e o item Código-fonte.

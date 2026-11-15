@@ -145,4 +145,13 @@ void main() {
     expect(toValue(5), {'integerValue': '5'});
     expect(fromValue({'arrayValue': <String, dynamic>{}}), isEmpty);
   });
+
+  test('mensagens de erro do login em português', () {
+    expect(authMessage(CloudException(400, '{"error":{"message":"EMAIL_EXISTS"}}')), contains('Já existe'));
+    expect(authMessage(CloudException(400, '{"error":{"message":"INVALID_LOGIN_CREDENTIALS"}}')),
+        'E-mail ou senha incorretos.');
+    expect(authMessage(CloudException(400, 'WEAK_PASSWORD : Password should be at least 6 characters')),
+        contains('8 caracteres'));
+    expect(authMessage(Exception('sem rede')), contains('internet'));
+  });
 }

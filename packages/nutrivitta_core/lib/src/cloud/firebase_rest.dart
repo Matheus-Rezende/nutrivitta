@@ -38,6 +38,39 @@ class FirebaseSession {
   bool get valid => DateTime.now().isBefore(expires);
 }
 
+/// Dados públicos da conta no Firebase Authentication.
+class AuthUser {
+  const AuthUser({required this.email, required this.name, required this.verified});
+
+  final String email;
+  final String name;
+  final bool verified;
+}
+
+/// Mensagem em português para os erros do Firebase Authentication.
+String authMessage(Object error) {
+  if (error is! CloudException) {
+    return 'Sem conexão com a internet. Confira e tente de novo.';
+  }
+  final b = error.body;
+  if (b.contains('EMAIL_EXISTS')) return 'Já existe uma conta com este e-mail. Use Entrar.';
+  if (b.contains('INVALID_LOGIN_CREDENTIALS') || b.contains('INVALID_PASSWORD') || b.contains('EMAIL_NOT_FOUND')) {
+    return 'E-mail ou senha incorretos.';
+  }
+  if (b.contains('INVALID_EMAIL')) return 'Confira o e-mail digitado.';
+  if (b.contains('WEAK_PASSWORD') || b.contains('PASSWORD_DOES_NOT_MEET_REQUIREMENTS')) {
+    return 'Use uma senha com pelo menos 8 caracteres.';
+  }
+  if (b.contains('MISSING_PASSWORD')) return 'Digite a senha.';
+  if (b.contains('USER_DISABLED')) return 'Esta conta foi desativada.';
+  if (b.contains('TOO_MANY_ATTEMPTS_TRY_LATER')) return 'Muitas tentativas. Espere alguns minutos e tente de novo.';
+  if (b.contains('OPERATION_NOT_ALLOWED')) return 'O login por e-mail ainda não foi ativado no servidor.';
+  if (b.contains('TOKEN_EXPIRED') || b.contains('USER_NOT_FOUND') || b.contains('INVALID_REFRESH_TOKEN')) {
+    return 'Sua sessão terminou. Entre de novo.';
+  }
+  return 'Não foi possível concluir agora. Tente de novo em instantes.';
+}
+
 class FirebaseAuthRest {
   FirebaseAuthRest(this.apiKey, {http.Client? client}) : _client = client ?? http.Client();
 
@@ -49,24 +82,54 @@ class FirebaseAuthRest {
     return DateTime.now().add(Duration(seconds: s - 120));
   }
 
-  /// Troca o token de identidade do Google por uma sessão do Firebase.
-  Future<FirebaseSession> signInWithGoogle(String googleIdToken) async {
-    final uri = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp')
-        .replace(queryParameters: {'key': apiKey});
+  Uri _api(String method) =>
+      Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:$method').replace(queryParameters: {'key': apiKey});
+
+  Future<Map<String, dynamic>> _post(String method, Map<String, Object?> body) async {
     final r = await _client
-        .post(uri,
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'postBody': 'id_token=${Uri.encodeQueryComponent(googleIdToken)}&providerId=google.com',
-              'requestUri': 'http://localhost',
-              'returnSecureToken': true,
-              'returnIdpCredential': true,
-            }))
+        .post(_api(method),
+            // e-mails de confirmação e de nova senha em português
+            headers: const {'Content-Type': 'application/json', 'X-Firebase-Locale': 'pt-BR'},
+            body: jsonEncode(body))
         .timeout(_timeout);
     _check(r);
-    final j = jsonDecode(r.body) as Map<String, dynamic>;
-    return FirebaseSession(
-        j['localId'] as String, j['idToken'] as String, j['refreshToken'] as String, _expiry(j['expiresIn']));
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  FirebaseSession _session(Map<String, dynamic> j) => FirebaseSession(
+      j['localId'] as String, j['idToken'] as String, j['refreshToken'] as String, _expiry(j['expiresIn']));
+
+  /// Cria a conta com e-mail e senha.
+  Future<FirebaseSession> signUp(String email, String password) async =>
+      _session(await _post('signUp', {'email': email, 'password': password, 'returnSecureToken': true}));
+
+  /// Entra com e-mail e senha.
+  Future<FirebaseSession> signInWithPassword(String email, String password) async => _session(
+      await _post('signInWithPassword', {'email': email, 'password': password, 'returnSecureToken': true}));
+
+  /// Guarda o nome da pessoa na conta.
+  Future<void> setDisplayName(String idToken, String name) =>
+      _post('update', {'idToken': idToken, 'displayName': name, 'returnSecureToken': false});
+
+  /// Envia o e-mail com o link de confirmação.
+  Future<void> sendVerification(String idToken) =>
+      _post('sendOobCode', {'requestType': 'VERIFY_EMAIL', 'idToken': idToken});
+
+  /// Envia o e-mail com o link para criar uma senha nova.
+  Future<void> sendPasswordReset(String email) =>
+      _post('sendOobCode', {'requestType': 'PASSWORD_RESET', 'email': email});
+
+  /// Dados da conta: e-mail, nome e se o e-mail já foi confirmado.
+  Future<AuthUser> lookup(String idToken) async {
+    final j = await _post('lookup', {'idToken': idToken});
+    final users = j['users'] as List? ?? const [];
+    if (users.isEmpty) throw CloudException(400, 'USER_NOT_FOUND');
+    final u = users.first as Map;
+    return AuthUser(
+      email: '${u['email'] ?? ''}'.toLowerCase(),
+      name: '${u['displayName'] ?? ''}',
+      verified: u['emailVerified'] == true,
+    );
   }
 
   /// Renova a sessão (o token dura cerca de uma hora).

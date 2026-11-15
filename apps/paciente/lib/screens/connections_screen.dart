@@ -103,7 +103,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             if (!account.online)
               const EmptyNote(
                 icon: Icons.cloud_off_outlined,
-                text: 'Entre com a conta Google (em Perfil) para receber pedidos de conexão do seu nutricionista.',
+                text: 'Entre ou crie uma conta (em Perfil) para receber pedidos de conexão do seu nutricionista.',
               )
             else ...[
               _CodeCard(code: state.profile.code),

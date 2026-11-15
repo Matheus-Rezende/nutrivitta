@@ -76,7 +76,7 @@ class _NutriVittaAppState extends State<NutriVittaApp> {
   }
 }
 
-/// Decide a tela: entrada, cadastro ou o app.
+/// Decide a tela: entrada, confirmação do e-mail, cadastro ou o app.
 class _Root extends StatelessWidget {
   const _Root();
 
@@ -86,10 +86,13 @@ class _Root extends StatelessWidget {
     return ListenableBuilder(
       listenable: Account.instance,
       builder: (context, _) {
+        final account = Account.instance;
         final Widget screen;
-        if (state.onboarded) {
+        if (account.signedIn && !account.verified) {
+          screen = const VerifyEmailScreen();
+        } else if (state.onboarded) {
           screen = const PatientShell();
-        } else if (Account.instance.signedIn || state.localMode) {
+        } else if (account.signedIn || state.localMode) {
           screen = const OnboardingScreen();
         } else {
           screen = const WelcomeScreen();

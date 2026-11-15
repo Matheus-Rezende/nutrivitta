@@ -70,7 +70,7 @@ class _NutriVittaProAppState extends State<NutriVittaProApp> {
   }
 }
 
-/// Entrada, cadastro profissional ou o app.
+/// Entrada, confirmação do e-mail, cadastro profissional ou o app.
 class _Root extends StatelessWidget {
   const _Root();
 
@@ -84,7 +84,9 @@ class _Root extends StatelessWidget {
         final Widget screen;
         if (!account.signedIn) {
           screen = const ProWelcomeScreen();
-        } else if (state.loadingProfile || account.busy) {
+        } else if (!account.verified) {
+          screen = const VerifyEmailScreen();
+        } else if (state.loadingProfile) {
           screen = const Scaffold(body: Center(child: CircularProgressIndicator()));
         } else if (!state.ready) {
           screen = const ProOnboardingScreen();

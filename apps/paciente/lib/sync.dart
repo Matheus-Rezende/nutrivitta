@@ -8,8 +8,7 @@ import 'background.dart';
 import 'state/app_state.dart';
 
 /// Sincronização do app do paciente: envia o que mudou no aparelho, busca
-/// metas, recados, anamnese, medidas e pedidos de conexão, e mantém a cópia
-/// no Google Drive.
+/// metas, recados, anamnese, medidas e pedidos de conexão.
 class Sync extends ChangeNotifier with WidgetsBindingObserver {
   Sync._();
 
@@ -22,7 +21,6 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
   bool busy = false;
   String? message;
   DateTime? lastSync;
-  DateTime? lastDriveBackup;
 
   /// Procurando dados já salvos logo depois do login (o cadastro espera).
   bool restoring = false;
@@ -33,7 +31,6 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _pulled = false;
   bool _again = false;
-  bool _driveDirty = false;
   Timer? _debounce;
 
   /// Verificação rápida com o app aberto (pedidos e recados novos).
@@ -51,7 +48,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       _stopPolling();
     };
     WidgetsBinding.instance.addObserver(this);
-    await _account.init(scopes: const [DriveBackup.scope]);
+    await _account.init();
   }
 
   Future<void> _onSignedIn() async {
@@ -138,8 +135,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _changed() {
-    _driveDirty = true;
-    if (!_account.signedIn) return;
+    if (!_account.online) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 4), () => unawaited(run()));
   }
@@ -151,7 +147,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> run({bool userAsked = false}) async {
-    if (!_account.signedIn) return;
+    if (!_account.online) return;
     if (busy) {
       _again = true;
       return;
@@ -160,8 +156,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     message = null;
     notifyListeners();
     try {
-      if (_account.online) await _firestore();
-      await _drive(userAsked: userAsked);
+      await _firestore();
       lastSync = DateTime.now();
     } on CloudException catch (e) {
       debugPrint('Sincronização: $e');
@@ -369,32 +364,12 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       'measures': [for (final m in results[4] as List<BodyMeasure>) m.toJson()],
       'days': {for (final d in days) d.date: d.toJson()},
     });
-    _driveDirty = true;
     message = 'Seus dados foram restaurados.';
-  }
-
-  Future<void> _drive({required bool userAsked}) async {
-    final drive = await _account.drive();
-    if (drive == null) return;
-    if (!_state.onboarded) {
-      // conta sem dados no banco online: tenta a cópia do Drive
-      final backup = await drive.download();
-      if (backup != null) {
-        await _state.importBackup(backup, markDirty: true);
-        message = 'Seus dados foram restaurados do Google Drive.';
-        _again = _account.online;
-      }
-      return;
-    }
-    if (!_driveDirty && lastDriveBackup != null && !userAsked) return;
-    await drive.upload(_state.exportBackup());
-    _driveDirty = false;
-    lastDriveBackup = DateTime.now();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _account.signedIn) {
+    if (state == AppLifecycleState.resumed && _account.online) {
       _startPolling();
       final last = lastSync;
       if (!busy && (last == null || DateTime.now().difference(last).inMinutes >= 2)) {
@@ -405,7 +380,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.paused) {
       // em segundo plano, quem verifica é o WorkManager
       _stopPolling();
-      if (_account.signedIn && _state.dirty.isNotEmpty) {
+      if (_account.online && _state.dirty.isNotEmpty) {
         _debounce?.cancel();
         unawaited(run());
       }

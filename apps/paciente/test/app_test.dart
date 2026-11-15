@@ -21,6 +21,8 @@ void main() {
     final local = find.text('Usar sem conta neste aparelho');
     await _pumpUntil(tester, local);
     expect(local, findsOneWidget);
+    expect(find.text('Esqueci minha senha'), findsOneWidget);
+    await tester.ensureVisible(local);
     await tester.tap(local);
     await tester.pumpAndSettle();
     expect(find.text('Sobre você'), findsOneWidget);

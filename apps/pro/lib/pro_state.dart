@@ -130,7 +130,7 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_account.signedIn) return;
+    if (!_account.online) return;
     if (state == AppLifecycleState.resumed) {
       _startPolling();
       unawaited(_quickCheck());
