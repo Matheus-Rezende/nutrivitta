@@ -16,7 +16,8 @@ class PatientDetailScreen extends StatefulWidget {
   State<PatientDetailScreen> createState() => _PatientDetailScreenState();
 }
 
-class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTickerProviderStateMixin {
+class _PatientDetailScreenState extends State<PatientDetailScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _remote = Remote.instance;
   late final _tabs = TabController(length: 4, vsync: this)..addListener(() => setState(() {}));
 
@@ -39,6 +40,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
   List<BodyMeasure>? _measures;
   Anamnesis? _anamnesis;
 
+  // atualização em tempo real: o app do paciente marca users/{uid}.changeAt
+  // depois de enviar alterações; a ficha aberta confere a marca e recarrega
+  static const _watchEvery = Duration(seconds: 10);
+  Timer? _watch;
+  String _changeAt = '';
+  bool _checking = false;
+
   String get _uid => widget.link.patientUid;
   String get _me => ProScope.read(context).profile?.name ?? '';
   bool get _isToday => dateKey(_date) == dateKey(DateTime.now());
@@ -46,13 +54,47 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAll();
+    _watch = Timer.periodic(_watchEvery, (_) => _check());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _watch?.cancel();
     _tabs.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  void _applyUser(Map<String, dynamic> user) {
+    _changeAt = '${user['changeAt'] ?? ''}';
+    _profile = Profile.fromJson(user);
+    final g = user['goals'];
+    _goals = g is Map ? Goals.fromJson(Map<String, dynamic>.from(g)) : _profile!.suggestGoals();
+  }
+
+  /// Confere se o paciente enviou alterações e, se sim, recarrega tudo sem
+  /// mostrar carregamento.
+  Future<void> _check() async {
+    if (_checking || _error != null || _profile == null) return;
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+    _checking = true;
+    try {
+      final user = await _remote.user(_uid);
+      if (user == null || !mounted || '${user['changeAt'] ?? ''}' == _changeAt) return;
+      setState(() => _applyUser(user));
+      await Future.wait([_loadDay(silent: true), _loadRange(silent: true), _loadMeasures(), _loadAnamnesis()]);
+    } catch (e) {
+      debugPrint('Atualização da ficha: $e');
+    } finally {
+      _checking = false;
+    }
   }
 
   Future<void> _loadAll() async {
@@ -61,11 +103,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
       final user = await _remote.user(_uid);
       if (user == null) throw StateError('Paciente sem dados');
       if (!mounted) return;
-      setState(() {
-        _profile = Profile.fromJson(user);
-        final g = user['goals'];
-        _goals = g is Map ? Goals.fromJson(Map<String, dynamic>.from(g)) : _profile!.suggestGoals();
-      });
+      setState(() => _applyUser(user));
       await Future.wait([_loadDay(), _loadRange(), _loadMeasures(), _loadAnamnesis()]);
     } catch (e) {
       if (mounted) {
@@ -76,9 +114,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     }
   }
 
-  Future<void> _loadDay() async {
+  Future<void> _loadDay({bool silent = false}) async {
     final key = dateKey(_date);
-    if (!_loadingDay) setState(() => _loadingDay = true);
+    if (!silent && !_loadingDay) setState(() => _loadingDay = true);
     try {
       final results = await Future.wait<Object?>([_remote.day(_uid, key), _remote.comment(_uid, key)]);
       if (!mounted || key != dateKey(_date)) return;
@@ -88,7 +126,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
         _loadingDay = false;
       });
     } catch (e) {
-      if (!mounted || key != dateKey(_date)) return;
+      if (!mounted || key != dateKey(_date) || silent) return;
       setState(() {
         _day = null;
         _comment = null;
@@ -97,9 +135,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     }
   }
 
-  Future<void> _loadRange() async {
+  Future<void> _loadRange({bool silent = false}) async {
     final range = _range;
-    if (_rangeDays != null) setState(() => _rangeDays = null);
+    if (!silent && _rangeDays != null) setState(() => _rangeDays = null);
     try {
       final results = await Future.wait<Object>([
         _remote.days(_uid, lastDays(DateTime.now(), range)),
@@ -111,7 +149,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
         _weights = results[1] as List<WeightRecord>;
       });
     } catch (e) {
-      if (mounted && range == _range) setState(() => _rangeDays = const {});
+      if (mounted && range == _range && !silent) setState(() => _rangeDays = const {});
     }
   }
 
@@ -120,7 +158,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
       final m = await _remote.measures(_uid);
       if (mounted) setState(() => _measures = m);
     } catch (e) {
-      if (mounted) setState(() => _measures = const []);
+      if (mounted && _measures == null) setState(() => _measures = const []);
     }
   }
 
@@ -129,7 +167,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
       final a = await _remote.anamnesis(_uid);
       if (mounted) setState(() => _anamnesis = a);
     } catch (e) {
-      if (mounted) setState(() => _anamnesis = const Anamnesis());
+      if (mounted && _anamnesis == null) setState(() => _anamnesis = const Anamnesis());
     }
   }
 

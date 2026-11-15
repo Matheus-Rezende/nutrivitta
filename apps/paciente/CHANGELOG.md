@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.9.0
+
+- **O nutricionista vê em tempo real**: o que você registra (alimentos, foto do prato, água, peso, medidas, anamnese e perfil) aparece na ficha que o nutricionista está vendo em até cerca de 15 segundos depois de enviado.
+
 ## 0.8.0
 
 - **Atualização em tempo real**: quando o nutricionista muda suas metas, medidas, anamnese ou um recado, o app mostra a mudança em até 15 segundos com o app aberto, e avisa com uma notificação.

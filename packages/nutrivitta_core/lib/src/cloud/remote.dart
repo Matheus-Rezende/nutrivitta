@@ -37,6 +37,11 @@ class Remote {
 
   Future<void> saveProfile(String uid, Profile p) => _db.set('users/$uid', p.toJson(), mask: Profile.fields);
 
+  /// O paciente marca que enviou alterações. A ficha aberta no app Pro
+  /// confere esta marca a cada poucos segundos e, quando muda, recarrega.
+  Future<void> touchUser(String uid) =>
+      _db.set('users/$uid', {'changeAt': DateTime.now().toUtc().toIso8601String()}, mask: const ['changeAt']);
+
   Future<void> saveGoals(String uid, Goals g) => _db.set('users/$uid', {'goals': g.toJson()}, mask: const ['goals']);
 
   Future<void> saveDay(String uid, DayLog day) => _db.set('users/$uid/days/${day.date}', day.toJson());

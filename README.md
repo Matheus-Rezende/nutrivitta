@@ -37,6 +37,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 4. Se o paciente aceitar, o uid do nutricionista entra na lista `nutritionistUids` do perfil do paciente. As regras do banco liberam a leitura só para quem está nessa lista, e só o paciente a altera. O app do paciente mantém essa lista igual aos vínculos aceitos (se os dados do aparelho forem apagados, ela é refeita).
 5. Qualquer um dos dois pode encerrar o vínculo.
 6. Quando o nutricionista altera metas, medidas, anamnese ou recados, ele marca o vínculo (`changeWhat`/`changeAt`). O app do paciente consulta o vínculo a cada 15 segundos com o app aberto e, ao ver a marca nova, busca os dados de novo e mostra uma notificação.
+7. No sentido contrário, depois de enviar alterações o app do paciente marca `users/{uid}.changeAt`. A ficha aberta no NutriVitta Pro confere essa marca a cada 10 segundos e recarrega o diário, o resumo, as medidas e a anamnese quando ela muda.
 
 A notificação não é instantânea porque o envio de push pelo Firebase exige um servidor (Cloud Functions), disponível só no plano pago.
 

@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.9.0
+
+- **Ficha do paciente em tempo real**: com a ficha aberta, o que o paciente registra (alimentos, foto do prato, água, peso, medidas, anamnese e perfil) aparece sozinho em poucos segundos, sem precisar sair e entrar de novo.
+
 ## 0.8.0
 
 - **O paciente vê em tempo real**: metas, medidas, anamnese e recados que você altera aparecem no app do paciente em até 15 segundos com o app aberto, e ele recebe uma notificação.

@@ -239,7 +239,8 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     if (!_state.onboarded) return;
     await _ensureCode(uid);
     // envia o que mudou; cada item só sai da fila depois de gravado
-    for (final item in _state.dirty.toList()) {
+    final pending = _state.dirty.toList();
+    for (final item in pending) {
       if (item == AppState.dirtyProfile) {
         var p = _state.profile;
         if (p.email.isEmpty || p.name.isEmpty) {
@@ -272,6 +273,14 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
         await _remote.deletePhoto(uid, item.substring(9));
       }
       _state.clearDirty(item);
+    }
+    // avisa a ficha aberta no app do nutricionista
+    if (pending.isNotEmpty && _state.profile.nutritionistUids.isNotEmpty) {
+      try {
+        await _remote.touchUser(uid);
+      } catch (e) {
+        debugPrint('Aviso de alteração ao nutricionista: $e');
+      }
     }
   }
 
