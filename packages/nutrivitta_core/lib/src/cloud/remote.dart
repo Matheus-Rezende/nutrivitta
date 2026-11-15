@@ -14,7 +14,7 @@ import 'firebase_rest.dart';
 ///   users/{uid}/days/{aaaa-mm-dd}        diário do dia
 ///   users/{uid}/meta/foods|weights       alimentos próprios e pesagens
 ///   users/{uid}/meta/anamnesis|measures  anamnese e medidas corporais
-///   users/{uid}/photos/{registro}        foto da refeição (JPEG em base64)
+///   users/{uid}/photos/{dia_refeição}    foto do prato de cada refeição (JPEG em base64)
 ///   users/{uid}/comments/{aaaa-mm-dd}    recado do nutricionista
 ///   codes/{código}                       código do paciente -> uid e nome
 ///   pros/{uid}                           perfil do nutricionista

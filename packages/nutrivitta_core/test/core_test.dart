@@ -36,8 +36,8 @@ void main() {
     const per100 = Nutrients(kcal: 200, protein: 10, carbs: 20, fat: 5, fiber: 2);
     final day = DayLog('2026-11-13', entries: [
       _entry('a', DateTime(2026, 11, 13, 7, 30), Meal.breakfast, 100, per100),
-      _entry('b', DateTime(2026, 11, 13, 12, 15), Meal.lunch, 250, per100).copyWith(hasPhoto: true),
-    ]);
+      _entry('b', DateTime(2026, 11, 13, 12, 15), Meal.lunch, 250, per100),
+    ], photos: {Meal.lunch: 'v1'});
     expect(day.total.kcal, closeTo(700, 0.01));
     expect(day.total.protein, closeTo(35, 0.01));
     expect(day.totalOf(Meal.lunch).kcal, closeTo(500, 0.01));
@@ -45,8 +45,10 @@ void main() {
     expect(back.entries.length, 2);
     expect(back.entries.last.time, DateTime(2026, 11, 13, 12, 15));
     expect(back.entries.last.per100.kcal, closeTo(200, 0.5));
-    expect(back.entries.last.hasPhoto, isTrue);
-    expect(back.entries.first.hasPhoto, isFalse);
+    expect(back.hasPhoto(Meal.lunch), isTrue);
+    expect(back.hasPhoto(Meal.breakfast), isFalse);
+    expect(back.photos[Meal.lunch], 'v1');
+    expect(back.photoIdOf(Meal.lunch), '${back.date}_lunch');
     expect(Meal.forTime(DateTime(2026, 1, 1, 7)), Meal.breakfast);
     expect(Meal.forTime(DateTime(2026, 1, 1, 13)), Meal.lunch);
     expect(Meal.forTime(DateTime(2026, 1, 1, 20)), Meal.dinner);

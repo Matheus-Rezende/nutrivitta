@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import '../sync.dart';
 import 'add_food_screen.dart';
 import 'connections_screen.dart';
+import 'meal_photo_sheet.dart';
 import 'portion_sheet.dart';
 
 /// Diário alimentar do paciente.
@@ -63,26 +64,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     if (updated != null) state.updateEntry(oldDate, updated);
   }
 
-  void _photo(FoodEntry entry) {
-    final state = AppScope.read(context);
-    showMealPhoto(
-      context,
-      title: '${entry.name} · ${hourMinute(entry.time)}',
-      load: () async {
-        final local = state.localPhoto(entry.id);
-        if (local != null) return local;
-        final uid = Account.instance.uid;
-        if (!Account.instance.online || uid == null) return null;
-        return Remote.instance.photo(uid, entry.id);
-      },
-    );
-  }
-
   void _delete(FoodEntry entry) {
     final state = AppScope.read(context);
     state.removeEntry(dateKey(entry.time), entry.id);
     showSnack(context, '${entry.name} removido.',
-        action: SnackBarAction(label: 'Desfazer', onPressed: () => state.addEntry(entry.copyWith(hasPhoto: false))));
+        action: SnackBarAction(label: 'Desfazer', onPressed: () => state.addEntry(entry)));
   }
 
   @override
@@ -144,7 +130,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
               onTapEntry: _edit,
               onDeleteEntry: _delete,
               onWater: (ml) => state.addWater(key, ml),
-              onPhoto: _photo,
+              loadPhoto: (meal) => loadMealPhoto(state, key, meal),
+              onMealPhoto: (meal) => showMealPhotoSheet(context, date: key, meal: meal),
+              photoCacheScope: 'me',
             ),
           ],
         ),

@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.7.0
+
+- **Foto do prato por refeição**: em vez de uma foto para cada alimento, agora há uma foto para cada refeição do dia, com o prato inteiro (arroz, feijão, frango e o que mais tiver). Toque no ícone de câmera ao lado do nome da refeição (Almoço, Jantar...) para tirar a foto, escolher da galeria, ver ou remover.
+- A foto aparece dentro do cartão da refeição; toque nela para ver inteira, com zoom.
+- A tela de quantidade do alimento ficou mais simples, sem a parte de foto.
+
 ## 0.6.1
 
 - **Troca de senha encerra as sessões**: depois de criar uma senha nova, a conta sai deste e de qualquer outro aparelho em até meio minuto com o app aberto (ou assim que o app voltar para a frente), e o app pede para entrar de novo com a senha nova.

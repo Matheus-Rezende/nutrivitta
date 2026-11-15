@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 import '../state/app_state.dart';
@@ -42,7 +39,6 @@ Future<FoodEntry?> editPortion(BuildContext context, FoodEntry entry) {
       grams: entry.grams,
       at: entry.time,
       meal: entry.meal,
-      hasPhoto: entry.hasPhoto,
     ),
   );
 }
@@ -58,7 +54,6 @@ class _PortionSheet extends StatefulWidget {
     required this.grams,
     required this.at,
     required this.meal,
-    this.hasPhoto = false,
   });
 
   final String? entryId;
@@ -70,7 +65,6 @@ class _PortionSheet extends StatefulWidget {
   final double grams;
   final DateTime at;
   final Meal meal;
-  final bool hasPhoto;
 
   @override
   State<_PortionSheet> createState() => _PortionSheetState();
@@ -80,79 +74,6 @@ class _PortionSheetState extends State<_PortionSheet> {
   late final _grams = TextEditingController(text: fmt(widget.grams, 1));
   late DateTime _when = widget.at;
   late Meal _meal = widget.meal;
-
-  /// Foto: a que já existia, uma nova escolhida agora (base64) ou nenhuma.
-  late bool _hasPhoto = widget.hasPhoto;
-  String? _newPhoto;
-  bool _picking = false;
-
-  Future<void> _pick(ImageSource source) async {
-    setState(() => _picking = true);
-    try {
-      final x = await ImagePicker().pickImage(source: source, maxWidth: 720, maxHeight: 720, imageQuality: 55);
-      if (x == null) return;
-      final bytes = await x.readAsBytes();
-      if (bytes.length > 600000) {
-        if (mounted) showSnack(context, 'A foto ficou grande demais. Tente outra.');
-        return;
-      }
-      setState(() {
-        _newPhoto = base64Encode(bytes);
-        _hasPhoto = true;
-      });
-    } catch (e) {
-      if (mounted) showSnack(context, 'Não foi possível abrir a câmera ou a galeria.');
-    } finally {
-      if (mounted) setState(() => _picking = false);
-    }
-  }
-
-  Widget _photoRow(TextTheme text) {
-    final scheme = Theme.of(context).colorScheme;
-    final photo = _newPhoto;
-    return Row(
-      children: [
-        if (photo != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.memory(base64Decode(photo), width: 56, height: 56, fit: BoxFit.cover),
-          )
-        else
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
-            child: Icon(_hasPhoto ? Icons.photo_outlined : Icons.add_a_photo_outlined, color: scheme.onSurfaceVariant),
-          ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(_hasPhoto ? 'Foto anexada' : 'Foto da refeição (opcional)', style: text.bodyMedium),
-        ),
-        if (_picking)
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-          )
-        else ...[
-          IconButton(
-              tooltip: 'Tirar foto', onPressed: () => _pick(ImageSource.camera), icon: const Icon(Icons.photo_camera_outlined)),
-          IconButton(
-              tooltip: 'Escolher da galeria',
-              onPressed: () => _pick(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library_outlined)),
-          if (_hasPhoto)
-            IconButton(
-              tooltip: 'Remover foto',
-              onPressed: () => setState(() {
-                _hasPhoto = false;
-                _newPhoto = null;
-              }),
-              icon: const Icon(Icons.delete_outline),
-            ),
-        ],
-      ],
-    );
-  }
 
   @override
   void dispose() {
@@ -199,11 +120,6 @@ class _PortionSheetState extends State<_PortionSheet> {
     }
     final state = AppScope.read(context);
     final id = widget.entryId ?? state.newId();
-    if (_newPhoto != null) {
-      state.setPhoto(id, _newPhoto!);
-    } else if (widget.hasPhoto && !_hasPhoto) {
-      state.removePhoto(id);
-    }
     Navigator.pop(
       context,
       FoodEntry(
@@ -214,7 +130,6 @@ class _PortionSheetState extends State<_PortionSheet> {
         name: widget.name,
         grams: g,
         nutrients: widget.per100.scale(g / 100),
-        hasPhoto: _hasPhoto,
       ),
     );
   }
@@ -305,8 +220,6 @@ class _PortionSheetState extends State<_PortionSheet> {
                     ChoiceChip(label: Text(m.label), selected: _meal == m, onSelected: (_) => setState(() => _meal = m)),
                 ],
               ),
-              const SizedBox(height: 16),
-              _photoRow(text),
               const SizedBox(height: 20),
               FilledButton(onPressed: _save, child: Text(widget.entryId == null ? 'Adicionar ao diário' : 'Salvar')),
             ],

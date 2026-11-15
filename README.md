@@ -11,7 +11,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 
 ## NutriVitta (paciente)
 
-- Registra o que comeu e **quando** comeu (dia e hora), por refeição, com **foto opcional** da refeição.
+- Registra o que comeu e **quando** comeu (dia e hora), por refeição, com **foto do prato** (opcional): uma foto por refeição, com todos os itens juntos.
 - Busca em cerca de 600 alimentos brasileiros da tabela TACO, que funciona sem internet, e cadastra alimentos próprios pelo rótulo.
 - Vê calorias, proteínas, carboidratos, gorduras, fibras e água do dia contra as metas.
 - Resumo de 7 ou 30 dias, histórico de peso e **medidas corporais** (circunferências e % de gordura).
@@ -25,7 +25,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 - Cria o perfil profissional (nome e CRN).
 - Envia o pedido de conexão pelo **código do paciente** (o e-mail não é usado), com uma mensagem opcional.
 - Vê a lista de pacientes conectados, de pedidos aguardando resposta e de recusados.
-- Na ficha de cada paciente: diário dia a dia com as fotos, resumo do período, peso, dados do perfil, medidas e anamnese.
+- Na ficha de cada paciente: diário dia a dia com a foto do prato de cada refeição, resumo do período, peso, dados do perfil, medidas e anamnese.
 - Define as metas do paciente, registra avaliações de medidas e deixa um recado por dia.
 - Edita a anamnese só com permissão do paciente: pede pelo app, o paciente permite ou não, e a permissão vale por 24 horas (o paciente pode revogar antes).
 

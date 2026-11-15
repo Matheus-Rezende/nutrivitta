@@ -276,12 +276,9 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     return code;
   }
 
-  String _photoDate(String entryId) {
-    for (final d in _state.days.values) {
-      if (d.entries.any((e) => e.id == entryId)) return d.date;
-    }
-    return dateKey(DateTime.now());
-  }
+  /// A foto se chama aaaa-mm-dd_refeição.
+  String _photoDate(String photoId) =>
+      RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(photoId)?.group(0) ?? dateKey(DateTime.now());
 
   /// Guarda os pedidos e mantém a lista de autorizados igual aos vínculos
   /// aceitos (só o paciente aceita um vínculo). Assim, se o perfil voltar sem

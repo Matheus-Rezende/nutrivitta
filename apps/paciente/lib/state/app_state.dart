@@ -153,7 +153,7 @@ class AppState extends ChangeNotifier {
   void markDirectoryCleaned() => _prefs.setBool(_kDirClean, true);
 
   /// Foto ainda não enviada (base64), guardada no aparelho até subir.
-  String? localPhoto(String entryId) => _prefs.getString('$_kPhotoPrefix$entryId');
+  String? localPhoto(String photoId) => _prefs.getString('$_kPhotoPrefix$photoId');
 
   Food? food(String id) => foodDb.byId(id, extra: _customFoods);
 
@@ -212,7 +212,7 @@ class AppState extends ChangeNotifier {
   void updateEntry(String oldDate, FoodEntry e) {
     final newDate = dateKey(e.time);
     if (oldDate != newDate) {
-      removeEntry(oldDate, e.id, keepPhoto: true);
+      removeEntry(oldDate, e.id);
       addEntry(e);
       return;
     }
@@ -226,33 +226,38 @@ class AppState extends ChangeNotifier {
     _saveDay(d);
   }
 
-  void removeEntry(String date, String id, {bool keepPhoto = false}) {
+  void removeEntry(String date, String id) {
     final d = day(date);
-    final had = d.entries.any((x) => x.id == id && x.hasPhoto);
     d.entries.removeWhere((x) => x.id == id);
     _saveDay(d);
-    if (had && !keepPhoto) removePhoto(id);
   }
 
-  /// Guarda a foto (JPEG em base64) até ela ser enviada.
-  void setPhoto(String entryId, String base64Jpeg) {
-    _prefs.setString('$_kPhotoPrefix$entryId', base64Jpeg);
-    clearDirty(dirtyPhotoDelete(entryId));
-    _mark(dirtyPhoto(entryId));
-    _changed();
+  /// Foto do prato de uma refeição (JPEG em base64): fica no aparelho até
+  /// ser enviada. Uma foto por refeição; a nova substitui a anterior.
+  void setMealPhoto(String date, Meal meal, String base64Jpeg) {
+    final d = day(date);
+    final id = d.photoIdOf(meal);
+    _prefs.setString('$_kPhotoPrefix$id', base64Jpeg);
+    clearDirty(dirtyPhotoDelete(id));
+    _mark(dirtyPhoto(id));
+    d.photos[meal] = newId();
+    _saveDay(d);
   }
 
-  void removePhoto(String entryId) {
-    _prefs.remove('$_kPhotoPrefix$entryId');
-    clearDirty(dirtyPhoto(entryId));
-    _mark(dirtyPhotoDelete(entryId));
-    _changed();
+  void removeMealPhoto(String date, Meal meal) {
+    final d = day(date);
+    final id = d.photoIdOf(meal);
+    _prefs.remove('$_kPhotoPrefix$id');
+    clearDirty(dirtyPhoto(id));
+    _mark(dirtyPhotoDelete(id));
+    d.photos.remove(meal);
+    _saveDay(d);
   }
 
   /// A foto subiu: a cópia do aparelho pode sair.
-  void photoUploaded(String entryId) {
-    _prefs.remove('$_kPhotoPrefix$entryId');
-    clearDirty(dirtyPhoto(entryId));
+  void photoUploaded(String photoId) {
+    _prefs.remove('$_kPhotoPrefix$photoId');
+    clearDirty(dirtyPhoto(photoId));
   }
 
   void addWater(String date, int deltaMl) {

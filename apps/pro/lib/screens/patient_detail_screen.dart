@@ -254,14 +254,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     }
   }
 
-  void _photo(FoodEntry entry) {
-    showMealPhoto(
-      context,
-      title: '${entry.name} · ${hourMinute(entry.time)}',
-      load: () => _remote.photo(_uid, entry.id),
-    );
-  }
-
   Future<void> _end() async {
     final state = ProScope.read(context);
     final ok = await confirm(
@@ -334,7 +326,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
               onAction: _loadDay,
             )
           else
-            DayView(day: day, goals: _goals, comment: _comment, onPhoto: _photo),
+            DayView(
+              day: day,
+              goals: _goals,
+              comment: _comment,
+              loadPhoto: (meal) => _remote.photo(_uid, day.photoIdOf(meal)),
+              photoCacheScope: _uid,
+            ),
         ],
       ),
     );

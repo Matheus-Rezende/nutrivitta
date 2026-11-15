@@ -45,7 +45,6 @@ class FoodEntry {
     required this.name,
     required this.grams,
     required this.nutrients,
-    this.hasPhoto = false,
   });
 
   final String id;
@@ -60,10 +59,7 @@ class FoodEntry {
   /// Valores já calculados para a quantidade consumida.
   final Nutrients nutrients;
 
-  /// Tem foto da refeição (guardada à parte, em users/{uid}/photos/{id}).
-  final bool hasPhoto;
-
-  FoodEntry copyWith({DateTime? time, Meal? meal, double? grams, Nutrients? nutrients, bool? hasPhoto}) => FoodEntry(
+  FoodEntry copyWith({DateTime? time, Meal? meal, double? grams, Nutrients? nutrients}) => FoodEntry(
         id: id,
         time: time ?? this.time,
         meal: meal ?? this.meal,
@@ -71,7 +67,6 @@ class FoodEntry {
         name: name,
         grams: grams ?? this.grams,
         nutrients: nutrients ?? this.nutrients,
-        hasPhoto: hasPhoto ?? this.hasPhoto,
       );
 
   /// Valores por 100 g, recuperados do que foi gravado (para editar a quantidade).
@@ -85,7 +80,6 @@ class FoodEntry {
         'name': name,
         'grams': grams,
         ...nutrients.toJson(),
-        if (hasPhoto) 'photo': true,
       };
 
   static FoodEntry fromJson(Map<String, dynamic> j) => FoodEntry(
@@ -96,21 +90,34 @@ class FoodEntry {
         name: (j['name'] as String?) ?? '',
         grams: _d(j['grams']),
         nutrients: Nutrients.fromJson(j),
-        hasPhoto: j['photo'] == true,
       );
 }
 
 /// Tudo o que foi registrado em um dia.
 class DayLog {
-  DayLog(this.date, {List<FoodEntry>? entries, this.waterMl = 0, this.updatedAt}) : entries = entries ?? [];
+  DayLog(this.date, {List<FoodEntry>? entries, this.waterMl = 0, this.updatedAt, Map<Meal, String>? photos})
+      : entries = entries ?? [],
+        photos = photos ?? {};
 
   /// aaaa-mm-dd
   final String date;
   final List<FoodEntry> entries;
+
+  /// Refeições com foto do prato. O valor muda a cada foto nova (para não
+  /// mostrar a anterior guardada em memória). A foto fica à parte, em
+  /// users/{uid}/photos/{[photoId]}.
+  final Map<Meal, String> photos;
   int waterMl;
   DateTime? updatedAt;
 
-  bool get isEmpty => entries.isEmpty && waterMl == 0;
+  bool get isEmpty => entries.isEmpty && waterMl == 0 && photos.isEmpty;
+
+  /// Identificador da foto de uma refeição: aaaa-mm-dd_refeição.
+  static String photoId(String date, Meal meal) => '${date}_${meal.name}';
+
+  String photoIdOf(Meal meal) => photoId(date, meal);
+
+  bool hasPhoto(Meal meal) => photos.containsKey(meal);
 
   Nutrients get total => entries.fold(Nutrients.zero, (a, e) => a + e.nutrients);
 
@@ -122,6 +129,7 @@ class DayLog {
         'date': date,
         'entries': [for (final e in entries) e.toJson()],
         'waterMl': waterMl,
+        'photos': {for (final e in photos.entries) e.key.name: e.value},
         'kcal': total.kcal.roundToDouble(),
         'updatedAt': (updatedAt ?? DateTime.now().toUtc()).toIso8601String(),
       };
@@ -133,6 +141,10 @@ class DayLog {
         ],
         waterMl: _i(j['waterMl']),
         updatedAt: DateTime.tryParse((j['updatedAt'] as String?) ?? ''),
+        photos: {
+          for (final e in ((j['photos'] as Map?) ?? const {}).entries)
+            if (Meal.values.any((m) => m.name == e.key)) Meal.parse('${e.key}'): '${e.value}',
+        },
       );
 }
 

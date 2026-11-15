@@ -4,6 +4,7 @@ import '../models/diary.dart';
 import '../theme/nv_theme.dart';
 import '../util/format.dart';
 import 'common.dart';
+import 'photo_view.dart';
 
 /// Resumo e refeições de um dia. Usado no diário do paciente e, só para
 /// leitura, na tela do nutricionista.
@@ -17,7 +18,9 @@ class DayView extends StatelessWidget {
     this.onTapEntry,
     this.onDeleteEntry,
     this.onWater,
-    this.onPhoto,
+    this.loadPhoto,
+    this.onMealPhoto,
+    this.photoCacheScope = '',
   });
 
   final DayLog day;
@@ -28,8 +31,15 @@ class DayView extends StatelessWidget {
   final ValueChanged<FoodEntry>? onDeleteEntry;
   final ValueChanged<int>? onWater;
 
-  /// Toque no ícone de foto de um registro que tem foto.
-  final ValueChanged<FoodEntry>? onPhoto;
+  /// Busca a foto do prato de uma refeição (JPEG em base64). Sem ela, as
+  /// fotos não aparecem.
+  final Future<String?> Function(Meal meal)? loadPhoto;
+
+  /// Botão de câmera no cabeçalho de cada refeição (só no app do paciente).
+  final ValueChanged<Meal>? onMealPhoto;
+
+  /// Distingue as fotos guardadas em memória (ex.: o uid do paciente).
+  final String photoCacheScope;
 
   bool get readOnly => onAdd == null;
 
@@ -105,10 +115,18 @@ class DayView extends StatelessWidget {
           ),
         ],
         for (final meal in Meal.values)
-          if (!readOnly || day.of(meal).isNotEmpty) ...[
+          if (!readOnly || day.of(meal).isNotEmpty || day.hasPhoto(meal)) ...[
             const SizedBox(height: 12),
             _MealCard(
-                day: day, meal: meal, onAdd: onAdd, onTapEntry: onTapEntry, onDeleteEntry: onDeleteEntry, onPhoto: onPhoto),
+              day: day,
+              meal: meal,
+              onAdd: onAdd,
+              onTapEntry: onTapEntry,
+              onDeleteEntry: onDeleteEntry,
+              loadPhoto: loadPhoto,
+              onMealPhoto: onMealPhoto,
+              photoCacheScope: photoCacheScope,
+            ),
           ],
         if (readOnly && day.entries.isEmpty)
           const EmptyNote(icon: Icons.no_meals_outlined, text: 'Nenhum alimento registrado neste dia.'),
@@ -120,14 +138,25 @@ class DayView extends StatelessWidget {
 }
 
 class _MealCard extends StatelessWidget {
-  const _MealCard({required this.day, required this.meal, this.onAdd, this.onTapEntry, this.onDeleteEntry, this.onPhoto});
+  const _MealCard({
+    required this.day,
+    required this.meal,
+    this.onAdd,
+    this.onTapEntry,
+    this.onDeleteEntry,
+    this.loadPhoto,
+    this.onMealPhoto,
+    this.photoCacheScope = '',
+  });
 
   final DayLog day;
   final Meal meal;
   final ValueChanged<Meal>? onAdd;
   final ValueChanged<FoodEntry>? onTapEntry;
   final ValueChanged<FoodEntry>? onDeleteEntry;
-  final ValueChanged<FoodEntry>? onPhoto;
+  final Future<String?> Function(Meal meal)? loadPhoto;
+  final ValueChanged<Meal>? onMealPhoto;
+  final String photoCacheScope;
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +176,12 @@ class _MealCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Text(meal.label, style: text.titleMedium)),
                 if (entries.isNotEmpty) Text('${fmt(kcal)} kcal', style: text.labelLarge),
+                if (onMealPhoto != null)
+                  IconButton(
+                    tooltip: day.hasPhoto(meal) ? 'Foto do prato' : 'Tirar foto do prato',
+                    onPressed: () => onMealPhoto!(meal),
+                    icon: Icon(day.hasPhoto(meal) ? Icons.photo_camera : Icons.add_a_photo_outlined),
+                  ),
                 if (onAdd != null)
                   IconButton(
                     tooltip: 'Adicionar em ${meal.label}',
@@ -158,9 +193,10 @@ class _MealCard extends StatelessWidget {
               ],
             ),
           ),
+          if (day.hasPhoto(meal) && loadPhoto != null) _photo(context),
           for (final e in entries) ...[
             const Divider(),
-            _EntryTile(entry: e, onTap: onTapEntry, onDelete: onDeleteEntry, onPhoto: onPhoto),
+            _EntryTile(entry: e, onTap: onTapEntry, onDelete: onDeleteEntry),
           ],
         ],
       ),
@@ -168,13 +204,33 @@ class _MealCard extends StatelessWidget {
   }
 }
 
+extension on _MealCard {
+  /// Foto do prato: miniatura; toque para ver inteira, com zoom.
+  Widget _photo(BuildContext context) {
+    final key = '$photoCacheScope/${day.photoIdOf(meal)}/${day.photos[meal]}';
+    Future<String?> load() => loadPhoto!(meal);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          child: InkWell(
+            onTap: () => showMealPhoto(context, title: '${meal.label} · ${friendlyDate(DateTime.parse(day.date))}',
+                load: load, cacheKey: key),
+            child: MealPhoto(key: ValueKey(key), load: load, cacheKey: key, height: 180),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.entry, this.onTap, this.onDelete, this.onPhoto});
+  const _EntryTile({required this.entry, this.onTap, this.onDelete});
 
   final FoodEntry entry;
   final ValueChanged<FoodEntry>? onTap;
   final ValueChanged<FoodEntry>? onDelete;
-  final ValueChanged<FoodEntry>? onPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -185,19 +241,7 @@ class _EntryTile extends StatelessWidget {
       title: Text(entry.name, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Text(
           '${hourMinute(entry.time)} · ${fmt(entry.grams)} g · P ${fmt(n.protein)} · C ${fmt(n.carbs)} · G ${fmt(n.fat)}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (entry.hasPhoto)
-            IconButton(
-              tooltip: 'Ver foto',
-              visualDensity: VisualDensity.compact,
-              onPressed: onPhoto == null ? null : () => onPhoto!(entry),
-              icon: const Icon(Icons.photo_camera_outlined),
-            ),
-          Text('${fmt(n.kcal)} kcal', style: text.labelLarge),
-        ],
-      ),
+      trailing: Text('${fmt(n.kcal)} kcal', style: text.labelLarge),
     );
     if (onDelete == null) return tile;
     return Dismissible(

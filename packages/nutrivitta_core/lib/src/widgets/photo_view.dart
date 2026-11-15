@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 
 /// Mostra a foto de uma refeição (JPEG em base64), carregada sob demanda.
 /// As fotos já vistas ficam em memória enquanto o app está aberto.
-Future<void> showMealPhoto(BuildContext context, {required String title, required Future<String?> Function() load}) {
+Future<void> showMealPhoto(BuildContext context,
+    {required String title, required Future<String?> Function() load, String? cacheKey}) {
   return showDialog<void>(
     context: context,
     builder: (ctx) => Dialog(
@@ -23,7 +24,7 @@ Future<void> showMealPhoto(BuildContext context, {required String title, require
               ],
             ),
           ),
-          MealPhoto(load: load),
+          MealPhoto(load: load, cacheKey: cacheKey),
         ],
       ),
     ),
@@ -34,10 +35,13 @@ final _cache = <String, Uint8List>{};
 
 /// Foto carregada de [load], com aviso de carregamento e de erro.
 class MealPhoto extends StatefulWidget {
-  const MealPhoto({super.key, required this.load, this.cacheKey});
+  const MealPhoto({super.key, required this.load, this.cacheKey, this.height});
 
   final Future<String?> Function() load;
   final String? cacheKey;
+
+  /// Miniatura com altura fixa, recortada; sem ela, a foto inteira com zoom.
+  final double? height;
 
   @override
   State<MealPhoto> createState() => _MealPhotoState();
@@ -61,13 +65,14 @@ class _MealPhotoState extends State<MealPhoto> {
     return FutureBuilder<Uint8List?>(
       future: _future,
       builder: (context, snap) {
+        final h = widget.height;
         if (snap.connectionState != ConnectionState.done) {
-          return const SizedBox(height: 240, child: Center(child: CircularProgressIndicator()));
+          return SizedBox(height: h ?? 240, child: const Center(child: CircularProgressIndicator()));
         }
         final bytes = snap.data;
         if (bytes == null) {
           return SizedBox(
-            height: 160,
+            height: h ?? 160,
             child: Center(
               child: TextButton.icon(
                 onPressed: () => setState(() => _future = _get()),
@@ -76,6 +81,10 @@ class _MealPhotoState extends State<MealPhoto> {
               ),
             ),
           );
+        }
+        if (h != null) {
+          return SizedBox(
+              height: h, width: double.infinity, child: Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true));
         }
         return InteractiveViewer(child: Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true));
       },

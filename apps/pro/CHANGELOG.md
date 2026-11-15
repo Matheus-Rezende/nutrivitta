@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.7.0
+
+- **Foto do prato por refeição**: o paciente agora tira uma foto do prato inteiro de cada refeição, em vez de uma por alimento. Na ficha do paciente, a foto aparece dentro do cartão da refeição; toque para ver inteira, com zoom.
+
 ## 0.6.1
 
 - **Troca de senha encerra as sessões**: depois de criar uma senha nova, a conta sai deste e de qualquer outro aparelho em até meio minuto com o app aberto (ou assim que o app voltar para a frente), e o app pede para entrar de novo com a senha nova.
