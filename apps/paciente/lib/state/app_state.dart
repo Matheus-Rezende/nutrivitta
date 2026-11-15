@@ -23,6 +23,7 @@ class AppState extends ChangeNotifier {
   static const _kLinks = 'nv_links_v1';
   static const _kDayPrefix = 'nv_day_';
   static const _kPhotoPrefix = 'nv_photo_';
+  static const _kDirClean = 'nv_dir_cleaned_v1';
 
   // marcas de "falta enviar para a nuvem"
   static const dirtyProfile = 'profile';
@@ -146,6 +147,11 @@ class AppState extends ChangeNotifier {
   /// Tudo o que espera uma resposta do paciente.
   int get pendingCount => pendingLinks.length + pendingAnamnesis.length;
 
+  /// O registro antigo por e-mail (versões até a 0.4.0) já foi apagado.
+  bool get directoryCleaned => _prefs.getBool(_kDirClean) ?? false;
+
+  void markDirectoryCleaned() => _prefs.setBool(_kDirClean, true);
+
   /// Foto ainda não enviada (base64), guardada no aparelho até subir.
   String? localPhoto(String entryId) => _prefs.getString('$_kPhotoPrefix$entryId');
 
@@ -257,7 +263,7 @@ class AppState extends ChangeNotifier {
 
   void setProfile(Profile p) {
     _profile = p;
-    _prefs.setString(_kProfile, jsonEncode(p.toJson()));
+    _prefs.setString(_kProfile, jsonEncode(p.toLocalJson()));
     _mark(dirtyProfile);
     _changed();
   }
@@ -274,7 +280,7 @@ class AppState extends ChangeNotifier {
     _onboarded = true;
     _prefs.setBool(_kOnboarded, true);
     _profile = p;
-    _prefs.setString(_kProfile, jsonEncode(p.toJson()));
+    _prefs.setString(_kProfile, jsonEncode(p.toLocalJson()));
     _mark(dirtyProfile);
     setGoals(g);
     if (p.weightKg > 0) addWeight(dateKey(DateTime.now()), p.weightKg);
@@ -419,7 +425,7 @@ class AppState extends ChangeNotifier {
         'app': 'NutriVitta',
         'format': 1,
         'savedAt': DateTime.now().toUtc().toIso8601String(),
-        'profile': _profile.toJson(),
+        'profile': _profile.toLocalJson(),
         'goals': _goals.toJson(),
         'foods': [for (final f in _customFoods) f.toJson()],
         'weights': [for (final w in _weights) w.toJson()],
@@ -436,7 +442,7 @@ class AppState extends ChangeNotifier {
       if (key.startsWith(_kDayPrefix)) await _prefs.remove(key);
     }
     _profile = Profile.fromJson(Map<String, dynamic>.from(profile));
-    await _prefs.setString(_kProfile, jsonEncode(_profile.toJson()));
+    await _prefs.setString(_kProfile, jsonEncode(_profile.toLocalJson()));
     final goals = b['goals'];
     _goals = goals is Map ? Goals.fromJson(Map<String, dynamic>.from(goals)) : _profile.suggestGoals();
     await _prefs.setString(_kGoals, jsonEncode(_goals.toJson()));

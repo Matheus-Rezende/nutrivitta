@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.5.0
+
+- **Pedido de conexão pelo código do paciente**: em **Adicionar paciente**, digite o código que o paciente encontra no app NutriVitta (Perfil > Nutricionistas). O e-mail do paciente não é mais usado nem mostrado.
+- Se a ficha de um paciente não abrir, a tela oferece **Remover da lista**, para enviar um pedido novo pelo código.
+- Ao encerrar um acompanhamento, o resto do vínculo fica como está no banco.
+
 ## 0.4.0
 
 - **Edição da anamnese com permissão do paciente**: na ficha do paciente, aba Anamnese, toque em **Pedir permissão para editar**. O paciente recebe o pedido e pode permitir ou não.

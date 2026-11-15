@@ -23,7 +23,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 ## NutriVitta Pro (nutricionista)
 
 - Cria o perfil profissional (nome e CRN).
-- Envia o pedido de conexão pelo **e-mail Google** do paciente, com uma mensagem opcional.
+- Envia o pedido de conexão pelo **código do paciente** (o e-mail não é usado), com uma mensagem opcional.
 - Vê a lista de pacientes conectados, de pedidos aguardando resposta e de recusados.
 - Na ficha de cada paciente: diário dia a dia com as fotos, resumo do período, peso, dados do perfil, medidas e anamnese.
 - Define as metas do paciente, registra avaliações de medidas e deixa um recado por dia.
@@ -31,10 +31,10 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 
 ## Como funciona a conexão
 
-1. O paciente entra no NutriVitta com a conta Google. O app publica o e-mail dele em um diretório para que o nutricionista o encontre.
-2. O nutricionista digita esse e-mail no NutriVitta Pro e envia o pedido.
+1. O paciente entra no NutriVitta com a conta Google e recebe um código único (Perfil > Nutricionistas), que pode trocar quando quiser.
+2. O nutricionista digita esse código no NutriVitta Pro e envia o pedido. O e-mail do paciente não é mostrado nem gravado no banco.
 3. O app do paciente mostra o pedido ao abrir e, em segundo plano, confere mais ou menos a cada 15 minutos e mostra uma notificação.
-4. Se o paciente aceitar, o uid do nutricionista entra na lista `nutritionistUids` do perfil do paciente. As regras do banco liberam a leitura só para quem está nessa lista, e só o paciente a altera.
+4. Se o paciente aceitar, o uid do nutricionista entra na lista `nutritionistUids` do perfil do paciente. As regras do banco liberam a leitura só para quem está nessa lista, e só o paciente a altera. O app do paciente mantém essa lista igual aos vínculos aceitos (se os dados do aparelho forem apagados, ela é refeita).
 5. Qualquer um dos dois pode encerrar o vínculo.
 
 A notificação não é instantânea porque o envio de push pelo Firebase exige um servidor (Cloud Functions), disponível só no plano pago.

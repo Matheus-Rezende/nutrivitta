@@ -68,10 +68,14 @@ void main() {
   });
 
   test('perfil guarda os nutricionistas autorizados', () {
-    const p = Profile(name: 'Ana', nutritionistUids: ['n1', 'n2']);
+    const p = Profile(name: 'Ana', email: 'ana@x.com', nutritionistUids: ['n1', 'n2'], code: 'K7M2QX9P');
     final back = Profile.fromJson(p.toJson());
     expect(back.nutritionistUids, ['n1', 'n2']);
-    expect(Profile.fields, contains('nutritionistUids'));
+    expect(back.code, 'K7M2QX9P');
+    expect(Profile.fields, containsAll(['nutritionistUids', 'code']));
+    // o e-mail não vai para o banco, só fica no aparelho
+    expect(p.toJson()['email'], '');
+    expect(Profile.fromJson(p.toLocalJson()).email, 'ana@x.com');
   });
 
   test('anamnese e medidas corporais', () {
@@ -100,7 +104,7 @@ void main() {
     final back = Link.fromJson(l.withStatus(LinkStatus.accepted).toJson());
     expect(back.accepted, isTrue);
     expect(back.proName, 'Dra. Bia');
-    expect(back.patientLabel, 'ana@x.com');
+    expect(back.patientLabel, 'Paciente');
     expect(LinkStatus.parse('xyz'), LinkStatus.pending);
 
     // permissão para editar a anamnese
@@ -118,7 +122,9 @@ void main() {
     expect(expired.canEditAnamnesis, isFalse);
     expect(granted.withStatus(LinkStatus.ended).canEditAnamnesis, isFalse);
     expect(granted.anamnesisFields().keys, containsAll(['anamnesisRequest', 'anamnesisUntil', 'updatedAt']));
-    expect(Remote.emailKey('  Ana@Gmail.COM '), 'ana@gmail.com');
+    expect(Remote.normalizeCode(' k7m2-qx9p '), 'K7M2QX9P');
+    expect(Remote.formatCode('k7m2qx9p'), 'K7M2-QX9P');
+    expect(Remote.codeAlphabet.contains('O') || Remote.codeAlphabet.contains('0'), isFalse);
   });
 
   test('conversão de valores do Firestore ida e volta', () {

@@ -69,13 +69,18 @@ service cloud.firestore {
       }
     }
 
-    // e-mail do paciente -> uid, para o nutricionista enviar o pedido
-    match /directory/{email} {
+    // código do paciente -> uid e nome, para o nutricionista enviar o pedido
+    // (só leitura de um código por vez; não dá para listar)
+    match /codes/{code} {
       allow get: if signedIn();
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && request.auth.token.email != null
-        && email == request.auth.token.email.lower();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // registro antigo por e-mail (até a versão 0.4.0): só o dono apaga
+    match /directory/{email} {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 

@@ -67,8 +67,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
       await Future.wait([_loadDay(), _loadRange(), _loadMeasures(), _loadAnamnesis()]);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Não foi possível abrir os dados deste paciente. '
-            'Ele pode ter desfeito a conexão, ou a internet falhou.');
+        setState(() => _error = 'Não foi possível abrir os dados deste paciente. Confira a internet. Se o problema '
+            'continuar, peça para ele abrir o app NutriVitta (isso refaz a conexão) ou remova-o da lista e envie '
+            'um pedido novo pelo código dele.');
       }
     }
   }
@@ -279,6 +280,24 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     }
   }
 
+  /// Tira o paciente da lista (o vínculo é apagado; dá para pedir de novo pelo código).
+  Future<void> _remove() async {
+    final state = ProScope.read(context);
+    final ok = await confirm(
+      context,
+      title: 'Remover ${widget.link.patientLabel} da lista?',
+      text: 'A conexão é desfeita. Para acompanhar de novo, envie um pedido novo com o código do paciente.',
+      ok: 'Remover',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await state.forget(state.current(widget.link));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) showSnack(context, 'Não foi possível remover agora.');
+    }
+  }
+
   Widget _loading() => const Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()));
 
   Widget _diaryTab() {
@@ -405,7 +424,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
         body: Center(
           child: _error == null
               ? const CircularProgressIndicator()
-              : EmptyNote(icon: Icons.error_outline, text: _error!, action: 'Tentar de novo', onAction: _loadAll),
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      EmptyNote(icon: Icons.error_outline, text: _error!, action: 'Tentar de novo', onAction: _loadAll),
+                      TextButton.icon(
+                        onPressed: _remove,
+                        icon: const Icon(Icons.person_remove_outlined),
+                        label: const Text('Remover da lista'),
+                      ),
+                    ],
+                  ),
+                ),
         ),
       );
     }

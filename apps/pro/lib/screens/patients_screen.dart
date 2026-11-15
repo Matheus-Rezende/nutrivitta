@@ -10,7 +10,7 @@ class PatientsScreen extends StatelessWidget {
 
   Future<void> _invite(BuildContext context) async {
     final state = ProScope.read(context);
-    final email = TextEditingController();
+    final codeCtrl = TextEditingController();
     final message = TextEditingController();
     final go = await showDialog<bool>(
       context: context,
@@ -21,13 +21,15 @@ class PatientsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: email,
+                controller: codeCtrl,
                 autofocus: true,
-                keyboardType: TextInputType.emailAddress,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 9,
                 decoration: const InputDecoration(
-                  labelText: 'E-mail Google do paciente',
-                  helperText: 'O mesmo que ele usa para entrar no app NutriVitta.',
-                  helperMaxLines: 2,
+                  labelText: 'Código do paciente',
+                  hintText: 'Ex.: K7M2-QX9P',
+                  helperText: 'O paciente encontra o código no app NutriVitta, em Perfil > Nutricionistas.',
+                  helperMaxLines: 3,
                 ),
               ),
               const SizedBox(height: 12),
@@ -48,24 +50,24 @@ class PatientsScreen extends StatelessWidget {
         ],
       ),
     );
-    final mail = email.text.trim();
+    final code = Remote.normalizeCode(codeCtrl.text);
     if (go != true || !context.mounted) return;
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(mail)) {
-      showSnack(context, 'Confira o e-mail digitado.');
+    if (code.length != Remote.codeLength) {
+      showSnack(context, 'O código tem 8 letras e números, como K7M2-QX9P.');
       return;
     }
     try {
-      final r = await state.invite(mail, message.text);
+      final r = await state.invite(code, message.text);
       if (!context.mounted) return;
       showSnack(
         context,
         switch (r) {
           InviteResult.sent => 'Pedido enviado. O paciente recebe o aviso no app NutriVitta.',
           InviteResult.notFound =>
-            'Nenhum paciente com este e-mail no NutriVitta. Peça para ele instalar o app e entrar com a conta Google.',
+            'Código não encontrado. Confira com o paciente (app NutriVitta, Perfil > Nutricionistas).',
           InviteResult.alreadyConnected => 'Este paciente já está conectado com você.',
           InviteResult.alreadyPending => 'Já existe um pedido aguardando a resposta deste paciente.',
-          InviteResult.self => 'Este é o seu próprio e-mail.',
+          InviteResult.self => 'Este código é da sua própria conta.',
         },
       );
     } catch (e) {
@@ -127,7 +129,8 @@ class PatientsScreen extends StatelessWidget {
             else if (patients.isEmpty)
               const EmptyNote(
                 icon: Icons.person_add_alt,
-                text: 'Nenhum paciente conectado ainda. Toque em "Adicionar paciente" e informe o e-mail Google dele.',
+                text: 'Nenhum paciente conectado ainda. Toque em "Adicionar paciente" e informe o código que ele '
+                    'encontra no app NutriVitta.',
               )
             else
               Card(
@@ -143,7 +146,6 @@ class PatientsScreen extends StatelessWidget {
                               style: TextStyle(color: scheme.onPrimaryContainer)),
                         ),
                         title: Text(l.patientLabel),
-                        subtitle: l.patientName.isEmpty ? null : Text(l.patientEmail),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () =>
                             Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(link: l))),

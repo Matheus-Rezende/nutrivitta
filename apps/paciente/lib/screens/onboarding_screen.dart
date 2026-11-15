@@ -25,6 +25,39 @@ class OnboardingScreen extends StatelessWidget {
           );
         }
         final state = AppScope.of(context);
+        if (Sync.instance.restoreFailed) {
+          return Scaffold(
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.cloud_off_outlined, size: 48),
+                    const SizedBox(height: 16),
+                    Text('Não foi possível buscar seus dados salvos',
+                        textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Confira a internet e tente de novo. Se você começar do zero agora, o perfil salvo na sua conta '
+                      'pode ser substituído pelo novo.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: Sync.instance.retryRestore,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Tentar de novo'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(onPressed: Sync.instance.skipRestore, child: const Text('Começar do zero')),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
         return PatientDataScreen(
           initial: Profile(name: account.name, email: account.email),
           onboarding: true,

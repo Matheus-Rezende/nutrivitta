@@ -41,10 +41,16 @@ class Profile {
     this.activity = Activity.light,
     this.objective = Objective.keep,
     this.nutritionistUids = const [],
+    this.code = '',
   });
 
   final String name;
+
+  /// Não é mais gravado online (privacidade); fica só no aparelho.
   final String email;
+
+  /// Código do paciente para o nutricionista enviar o pedido de conexão.
+  final String code;
   final String sex; // 'F' ou 'M'
   final int birthYear;
   final double heightCm;
@@ -70,6 +76,7 @@ class Profile {
     Activity? activity,
     Objective? objective,
     List<String>? nutritionistUids,
+    String? code,
   }) =>
       Profile(
         name: name ?? this.name,
@@ -81,17 +88,19 @@ class Profile {
         activity: activity ?? this.activity,
         objective: objective ?? this.objective,
         nutritionistUids: nutritionistUids ?? this.nutritionistUids,
+        code: code ?? this.code,
       );
 
   /// Campos gravados no documento do paciente (as metas vão à parte).
   static const fields = [
     'name', 'email', 'sex', 'birthYear', 'heightCm', 'weightKg', 'activity', 'objective',
-    'nutritionistUids', 'updatedAt',
+    'nutritionistUids', 'code', 'updatedAt',
   ];
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'email': email,
+        // o e-mail não vai para o banco: o nutricionista não precisa dele
+        'email': '',
         'sex': sex,
         'birthYear': birthYear,
         'heightCm': heightCm,
@@ -99,8 +108,12 @@ class Profile {
         'activity': activity.name,
         'objective': objective.name,
         'nutritionistUids': nutritionistUids,
+        'code': code,
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
+
+  /// Cópia local (no aparelho), com o e-mail.
+  Map<String, dynamic> toLocalJson() => {...toJson(), 'email': email};
 
   static Profile fromJson(Map<String, dynamic> j) => Profile(
         name: _s(j['name']),
@@ -112,6 +125,7 @@ class Profile {
         activity: Activity.values.firstWhere((a) => a.name == j['activity'], orElse: () => Activity.light),
         objective: Objective.values.firstWhere((o) => o.name == j['objective'], orElse: () => Objective.keep),
         nutritionistUids: [for (final u in (j['nutritionistUids'] as List? ?? const [])) '$u'],
+        code: _s(j['code']),
       );
 
   /// Estimativa de metas pela equação de Mifflin-St Jeor. É só um ponto de

@@ -27,6 +27,10 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
   /// Procurando dados já salvos logo depois do login (o cadastro espera).
   bool restoring = false;
 
+  /// A busca dos dados salvos falhou: o cadastro em branco não aparece, para
+  /// não sobrescrever o perfil que está online.
+  bool restoreFailed = false;
+
   bool _pulled = false;
   bool _again = false;
   bool _driveDirty = false;
@@ -65,6 +69,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (restoring) {
       restoring = false;
+      restoreFailed = _account.online && !_state.onboarded && !_pulled;
       notifyListeners();
     }
     unawaited(Background.instance.enable());
@@ -103,6 +108,27 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('Verificação rápida: $e');
     }
     _polling = false;
+  }
+
+  /// Tenta de novo buscar os dados salvos (tela de erro do cadastro).
+  Future<void> retryRestore() async {
+    restoreFailed = false;
+    restoring = true;
+    notifyListeners();
+    _pulled = false;
+    await run(userAsked: true);
+    while (busy || _again) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    restoring = false;
+    restoreFailed = _account.online && !_state.onboarded && !_pulled;
+    notifyListeners();
+  }
+
+  /// Começa do zero mesmo sem conseguir buscar os dados salvos.
+  void skipRestore() {
+    restoreFailed = false;
+    notifyListeners();
   }
 
   /// Sai da conta neste aparelho; os dados continuam aqui e na nuvem.
@@ -183,6 +209,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       _pulled = true;
     }
     if (!_state.onboarded) return;
+    await _ensureCode(uid);
     // envia o que mudou; cada item só sai da fila depois de gravado
     for (final item in _state.dirty.toList()) {
       if (item == AppState.dirtyProfile) {
@@ -191,7 +218,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
           p = p.copyWith(email: p.email.isEmpty ? _account.email : p.email, name: p.name.isEmpty ? _account.name : p.name);
         }
         await _remote.saveProfile(uid, p);
-        if (_account.email.isNotEmpty) await _remote.publishDirectory(uid, _account.email, p.name);
+        if (p.code.isNotEmpty) await _remote.renameCode(uid, p.code, p.name);
       } else if (item == AppState.dirtyGoals) {
         await _remote.saveGoals(uid, _state.goals);
       } else if (item == AppState.dirtyFoods) {
@@ -220,6 +247,40 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Garante que o paciente tem um código e apaga o registro antigo por e-mail.
+  Future<void> _ensureCode(String uid) async {
+    if (_state.profile.code.isEmpty) {
+      final code = await _remote.claimCode(uid, _state.profile.name);
+      _state.setProfile(_state.profile.copyWith(code: code));
+    }
+    if (!_state.directoryCleaned && _account.email.isNotEmpty) {
+      try {
+        await _remote.deleteDirectory(_account.email);
+      } catch (_) {
+        // não existia (ou já foi apagado)
+      }
+      _state.markDirectoryCleaned();
+    }
+  }
+
+  /// Troca o código do paciente (o antigo deixa de funcionar).
+  Future<String> newCode() async {
+    final uid = _account.uid;
+    if (!_account.online || uid == null) throw StateError('offline');
+    final old = _state.profile.code;
+    final code = await _remote.claimCode(uid, _state.profile.name);
+    final p = _state.profile.copyWith(code: code);
+    await _remote.saveProfile(uid, p);
+    _state.setProfile(p);
+    _state.clearDirty(AppState.dirtyProfile);
+    if (old.isNotEmpty) {
+      try {
+        await _remote.releaseCode(old);
+      } catch (_) {}
+    }
+    return code;
+  }
+
   String _photoDate(String entryId) {
     for (final d in _state.days.values) {
       if (d.entries.any((e) => e.id == entryId)) return d.date;
@@ -227,18 +288,17 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     return dateKey(DateTime.now());
   }
 
-  /// Guarda os pedidos e mantém a lista de autorizados coerente com eles:
-  /// se o nutricionista encerrou o vínculo, ele sai da lista.
+  /// Guarda os pedidos e mantém a lista de autorizados igual aos vínculos
+  /// aceitos (só o paciente aceita um vínculo). Assim, se o perfil voltar sem
+  /// a lista (ex.: dados apagados no aparelho), o acesso do nutricionista é
+  /// refeito; se o nutricionista encerrou, ele sai da lista.
   Future<void> _applyLinks(String uid, List<Link> links) async {
     links.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _state.setLinks(links);
-    final allowed = _state.profile.nutritionistUids;
-    final keep = [
-      for (final p in allowed)
-        if (links.any((l) => l.proUid == p && l.accepted)) p,
-    ];
-    if (keep.length != allowed.length) {
-      final p = _state.profile.copyWith(nutritionistUids: keep);
+    final allowed = {..._state.profile.nutritionistUids};
+    final accepted = {for (final l in links) if (l.accepted) l.proUid};
+    if (allowed.length != accepted.length || !allowed.containsAll(accepted)) {
+      final p = _state.profile.copyWith(nutritionistUids: accepted.toList());
       await _remote.saveProfile(uid, p);
       _state.setProfile(p);
       _state.clearDirty(AppState.dirtyProfile);

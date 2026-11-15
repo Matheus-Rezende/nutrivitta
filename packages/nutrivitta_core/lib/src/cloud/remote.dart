@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../config.dart';
 import '../models/diary.dart';
 import '../models/link.dart';
@@ -14,7 +16,7 @@ import 'firebase_rest.dart';
 ///   users/{uid}/meta/anamnesis|measures  anamnese e medidas corporais
 ///   users/{uid}/photos/{registro}        foto da refeição (JPEG em base64)
 ///   users/{uid}/comments/{aaaa-mm-dd}    recado do nutricionista
-///   directory/{e-mail}                   e-mail do paciente -> uid
+///   codes/{código}                       código do paciente -> uid e nome
 ///   pros/{uid}                           perfil do nutricionista
 ///   links/{proUid}_{patientUid}          pedido de conexão / vínculo
 class Remote {
@@ -119,20 +121,51 @@ class Remote {
     }
   }
 
-  // ---- diretório (encontrar o paciente pelo e-mail) ----
+  // ---- código do paciente (o nutricionista encontra o paciente por ele) ----
 
-  static String emailKey(String email) => email.trim().toLowerCase();
+  /// Letras e números sem os que se confundem (0/O, 1/I/L).
+  static const codeAlphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  static const codeLength = 8;
 
-  Future<void> publishDirectory(String uid, String email, String name) =>
-      _db.set('directory/${emailKey(email)}', {'uid': uid, 'name': name});
+  /// Deixa o código só com letras e números, em maiúsculas.
+  static String normalizeCode(String code) => code.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
-  /// Paciente com este e-mail: (uid, nome), ou null se não usa o app.
-  Future<(String, String)?> findPatient(String email) async {
-    final j = await _db.get('directory/${emailKey(email)}');
+  /// Mostra o código em dois blocos (ABCD-1234).
+  static String formatCode(String code) {
+    final c = normalizeCode(code);
+    return c.length == codeLength ? '${c.substring(0, 4)}-${c.substring(4)}' : c;
+  }
+
+  /// Cria um código novo e livre para o paciente.
+  Future<String> claimCode(String uid, String name) async {
+    final rnd = Random.secure();
+    for (var attempt = 0; attempt < 6; attempt++) {
+      final code = [for (var i = 0; i < codeLength; i++) codeAlphabet[rnd.nextInt(codeAlphabet.length)]].join();
+      if (await _db.get('codes/$code') != null) continue;
+      await _db.set('codes/$code', {'uid': uid, 'name': name, 'createdAt': DateTime.now().toUtc().toIso8601String()});
+      return code;
+    }
+    throw StateError('Não foi possível gerar o código.');
+  }
+
+  /// Atualiza o nome mostrado ao nutricionista junto com o código.
+  Future<void> renameCode(String uid, String code, String name) =>
+      _db.set('codes/$code', {'uid': uid, 'name': name}, mask: const ['uid', 'name']);
+
+  Future<void> releaseCode(String code) => _db.delete('codes/$code');
+
+  /// Paciente dono do código: (uid, nome), ou null se o código não existe.
+  Future<(String, String)?> findPatientByCode(String code) async {
+    final c = normalizeCode(code);
+    if (c.length != codeLength) return null;
+    final j = await _db.get('codes/$c');
     final uid = j?['uid'] as String?;
     if (uid == null || uid.isEmpty) return null;
     return (uid, (j?['name'] as String?) ?? '');
   }
+
+  /// Apaga o registro antigo por e-mail (versões até a 0.4.0).
+  Future<void> deleteDirectory(String email) => _db.delete('directory/${email.trim().toLowerCase()}');
 
   // ---- nutricionista ----
 

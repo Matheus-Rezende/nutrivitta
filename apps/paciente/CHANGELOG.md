@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.5.0
+
+- **Código do paciente**: em **Perfil > Nutricionistas** aparece o seu código (ex.: K7M2-QX9P), com botões para copiar e para gerar um novo. O nutricionista usa o código para enviar o pedido de conexão, e o seu e-mail não fica mais visível para ele.
+- **Conexão refeita sozinha**: se os dados do aparelho forem apagados, ao entrar de novo o app restaura o acesso dos nutricionistas que você já tinha aceitado.
+- Se não for possível buscar seus dados salvos depois do login, o app mostra **Tentar de novo** em vez de um cadastro em branco, para não substituir o seu perfil.
+
 ## 0.4.0
 
 - **Permissão para editar a anamnese**: o nutricionista só altera a sua anamnese se você permitir. Quando ele pede, o aviso aparece no topo do diário e como notificação; você escolhe **Permitir** ou **Não permitir**.

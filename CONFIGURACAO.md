@@ -72,9 +72,9 @@ keyAlias=nutrivitta
 ## Conferir
 
 1. Instale o **NutriVitta** com uma conta Google e faça o cadastro de paciente.
-2. Instale o **NutriVitta Pro** com outra conta, crie o perfil e toque em **Adicionar paciente** com o e-mail da primeira conta.
+2. Instale o **NutriVitta Pro** com outra conta, crie o perfil e toque em **Adicionar paciente** com o código que aparece no NutriVitta, em Perfil > Nutricionistas.
 3. No NutriVitta, o pedido aparece no topo do diário (e vira notificação em até ~15 min com o app fechado). Aceite.
 4. No Pro, puxe a lista para atualizar e abra o paciente: diário, resumo, medidas, anamnese, metas e recado.
-5. No console, em **Firestore Database > Dados**, devem aparecer `users`, `directory`, `pros` e `links`.
+5. No console, em **Firestore Database > Dados**, devem aparecer `users`, `codes`, `pros` e `links`.
 
 Se o login falhar logo após escolher a conta, o SHA-1 ou o ID do cliente da Web está errado.

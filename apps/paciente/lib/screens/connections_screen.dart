@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
 import '../state/app_state.dart';
@@ -105,11 +106,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 text: 'Entre com a conta Google (em Perfil) para receber pedidos de conexão do seu nutricionista.',
               )
             else ...[
-              Text(
-                'Seu nutricionista envia o pedido pelo app NutriVitta Pro usando o seu e-mail '
-                '(${account.email}). Ele só vê seus dados depois que você aceitar.',
-                style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-              ),
+              _CodeCard(code: state.profile.code),
               if (pending.isNotEmpty) const SectionTitle('Pedidos de conexão', icon: Icons.mark_email_unread_outlined),
               for (final l in pending)
                 Padding(
@@ -226,6 +223,108 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     ],
                   ),
                 ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Código do paciente, para passar ao nutricionista.
+class _CodeCard extends StatefulWidget {
+  const _CodeCard({required this.code});
+
+  final String code;
+
+  @override
+  State<_CodeCard> createState() => _CodeCardState();
+}
+
+class _CodeCardState extends State<_CodeCard> {
+  bool _busy = false;
+
+  Future<void> _renew() async {
+    final ok = await confirm(
+      context,
+      title: 'Gerar um código novo?',
+      text: 'O código atual deixa de funcionar. Nutricionistas já conectados continuam conectados.',
+      ok: 'Gerar novo',
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await Sync.instance.newCode();
+      if (mounted) showSnack(context, 'Código novo gerado.');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Não foi possível gerar agora. Confira a internet e tente de novo.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final code = widget.code;
+    return Card(
+      color: scheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Seu código', style: text.labelMedium?.copyWith(color: scheme.onPrimaryContainer)),
+            const SizedBox(height: 4),
+            if (code.isEmpty)
+              Text('Gerando... (precisa de internet)', style: text.bodyMedium?.copyWith(color: scheme.onPrimaryContainer))
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      Remote.formatCode(code),
+                      style: TextStyle(
+                        fontFamily: display,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 34,
+                        letterSpacing: 3,
+                        height: 1.1,
+                        color: scheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Copiar código',
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: Remote.formatCode(code)));
+                      if (context.mounted) showSnack(context, 'Código copiado.');
+                    },
+                    icon: Icon(Icons.copy, color: scheme.onPrimaryContainer),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 6),
+            Text(
+              'Passe este código ao seu nutricionista. Ele envia o pedido pelo app NutriVitta Pro e só vê seus dados '
+              'depois que você aceitar. Seu e-mail não é mostrado a ele.',
+              style: text.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+            ),
+            if (code.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: _busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : TextButton(
+                        onPressed: _renew,
+                        child: Text('Gerar código novo', style: TextStyle(color: scheme.onPrimaryContainer)),
+                      ),
+              ),
             ],
           ],
         ),

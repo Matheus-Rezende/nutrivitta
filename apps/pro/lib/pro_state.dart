@@ -176,13 +176,12 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Envia o pedido de conexão para o paciente com este e-mail.
-  Future<InviteResult> invite(String email, String message) async {
+  /// Envia o pedido de conexão para o paciente dono deste código.
+  Future<InviteResult> invite(String code, String message) async {
     final uid = _account.uid;
     final me = profile;
     if (uid == null || me == null || !_account.online) throw StateError('offline');
-    if (Remote.emailKey(email) == _account.email) return InviteResult.self;
-    final found = await _remote.findPatient(email);
+    final found = await _remote.findPatientByCode(code);
     if (found == null) return InviteResult.notFound;
     final (patientUid, patientName) = found;
     if (patientUid == uid) return InviteResult.self;
@@ -195,7 +194,6 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
       proName: me.name,
       proCrn: me.crn,
       patientName: patientName,
-      patientEmail: Remote.emailKey(email),
       message: message.trim(),
       createdAt: existing?.createdAt ?? '',
     );

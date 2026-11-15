@@ -109,7 +109,7 @@ class Link {
   bool get accepted => status == LinkStatus.accepted;
 
   /// Rótulo do paciente para quem o vê no app Pro.
-  String get patientLabel => patientName.isNotEmpty ? patientName : patientEmail;
+  String get patientLabel => patientName.isNotEmpty ? patientName : 'Paciente';
 
   Link withStatus(LinkStatus s) => copyWith(status: s);
 
