@@ -22,7 +22,8 @@ void callbackDispatcher() {
   });
 }
 
-/// Avisos ao paciente: pedido de conexão de nutricionista e recado novo.
+/// Avisos ao paciente: pedido de conexão, recado novo e dados alterados pelo
+/// nutricionista (metas, medidas, anamnese).
 class Background {
   Background._();
 
@@ -75,6 +76,15 @@ class Background {
             'Abra o NutriVitta para permitir ou não.',
           ),
     ];
+    final changeAlerts = [
+      for (final l in links)
+        if (l.accepted && l.changeAt.isNotEmpty && l.changeWhat != 'comments')
+          Alert(
+            'change:${l.id}:${l.changeAt}',
+            '${l.proName.isEmpty ? 'Seu nutricionista' : l.proName} ${l.changeLabel}',
+            'Abra o NutriVitta para ver.',
+          ),
+    ];
     final commentAlerts = [
       for (final c in comments.values)
         Alert('comment:${c.date}:${c.updatedAt}', 'Recado de ${c.author.isEmpty ? 'seu nutricionista' : c.author}', c.text),
@@ -82,8 +92,8 @@ class Background {
     // num aparelho novo, recados antigos não viram notificação
     final first = await Alerts.firstRun();
     await Alerts.deliver(
-      [...linkAlerts, ...anamnesisAlerts, if (!first) ...commentAlerts],
-      quietKeys: first ? {for (final a in commentAlerts) a.key} : const {},
+      [...linkAlerts, ...anamnesisAlerts, if (!first) ...changeAlerts, if (!first) ...commentAlerts],
+      quietKeys: first ? {for (final a in [...commentAlerts, ...changeAlerts]) a.key} : const {},
     );
   }
 }

@@ -228,6 +228,17 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Avisa o app do paciente que o nutricionista mudou um dado ([what]:
+  /// goals, measures, anamnesis ou comments). O paciente vê em segundos.
+  Future<void> signalChange(Link link, String what) async {
+    final fields = Link.changeFields(what);
+    try {
+      await _remote.updateLink(link, fields);
+    } catch (e) {
+      debugPrint('Aviso de alteração ao paciente: $e');
+    }
+  }
+
   /// Vínculo atualizado (a lista é renovada a cada 15 segundos).
   Link current(Link link) => links.where((l) => l.id == link.id).firstOrNull ?? link;
 

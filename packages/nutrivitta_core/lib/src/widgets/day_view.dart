@@ -21,6 +21,7 @@ class DayView extends StatelessWidget {
     this.loadPhoto,
     this.onMealPhoto,
     this.photoCacheScope = '',
+    this.onDeleteComment,
   });
 
   final DayLog day;
@@ -40,6 +41,9 @@ class DayView extends StatelessWidget {
 
   /// Distingue as fotos guardadas em memória (ex.: o uid do paciente).
   final String photoCacheScope;
+
+  /// Botão para apagar o recado (só no app do paciente).
+  final ValueChanged<DayComment>? onDeleteComment;
 
   bool get readOnly => onAdd == null;
 
@@ -109,6 +113,13 @@ class DayView extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (onDeleteComment != null)
+                    IconButton(
+                      tooltip: 'Apagar recado',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => onDeleteComment!(comment!),
+                      icon: Icon(Icons.close_rounded, color: scheme.onPrimaryContainer),
+                    ),
                 ],
               ),
             ),

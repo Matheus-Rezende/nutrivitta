@@ -2,6 +2,11 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.8.0
+
+- **O paciente vê em tempo real**: metas, medidas, anamnese e recados que você altera aparecem no app do paciente em até 15 segundos com o app aberto, e ele recebe uma notificação.
+- O paciente agora pode apagar um recado; ele some também da sua ficha.
+
 ## 0.7.0
 
 - **Foto do prato por refeição**: o paciente agora tira uma foto do prato inteiro de cada refeição, em vez de uma por alimento. Na ficha do paciente, a foto aparece dentro do cartão da refeição; toque para ver inteira, com zoom.

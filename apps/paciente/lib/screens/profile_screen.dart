@@ -8,6 +8,29 @@ import 'connections_screen.dart';
 import 'onboarding_screen.dart';
 import 'welcome_screen.dart';
 
+/// Sai da conta: envia o que falta, limpa este aparelho e volta para a tela
+/// de entrar. Tudo o que foi enviado volta quando a pessoa entrar de novo.
+Future<void> _signOut(BuildContext context) async {
+  final ok = await confirm(context,
+      title: 'Sair da conta?',
+      text: 'Seus dados continuam salvos na sua conta e voltam quando você entrar de novo. '
+          'Neste aparelho, o app volta para a tela de entrar.',
+      ok: 'Sair');
+  if (!ok || !context.mounted) return;
+  final pending = await Sync.instance.flush();
+  if (!context.mounted) return;
+  if (pending > 0) {
+    final lose = await confirm(context,
+        title: 'Há alterações não enviadas',
+        text: 'Sem internet, $pending ${pending == 1 ? 'alteração ainda não foi enviada e será perdida' : 'alterações ainda não foram enviadas e serão perdidas'} '
+            'se você sair agora.',
+        ok: 'Sair mesmo assim');
+    if (!lose || !context.mounted) return;
+  }
+  await Sync.instance.signOutAndClear();
+  if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+}
+
 /// Cartão da conta: quem está conectado, estado da sincronização e sair.
 /// Usado no perfil do paciente e do nutricionista.
 class AccountCard extends StatelessWidget {
@@ -107,13 +130,7 @@ class AccountCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final ok = await confirm(context,
-                            title: 'Sair da conta?',
-                            text: 'Os dados continuam salvos online e neste aparelho. Você pode entrar de novo quando quiser.',
-                            ok: 'Sair');
-                        if (ok) await sync.signOut();
-                      },
+                      onPressed: () => _signOut(context),
                       icon: const Icon(Icons.logout),
                       label: const Text('Sair'),
                     ),

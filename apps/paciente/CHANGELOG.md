@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.8.0
+
+- **Atualização em tempo real**: quando o nutricionista muda suas metas, medidas, anamnese ou um recado, o app mostra a mudança em até 15 segundos com o app aberto, e avisa com uma notificação.
+- **Apagar recado**: toque no **X** do recado do nutricionista, no diário, para apagá-lo. Ele sai também da ficha que o nutricionista vê.
+- **Sair da conta** agora volta para a tela de entrar e limpa este aparelho. Antes de sair, o app envia o que falta; seus dados voltam quando você entrar de novo.
+
 ## 0.7.0
 
 - **Foto do prato por refeição**: em vez de uma foto para cada alimento, agora há uma foto para cada refeição do dia, com o prato inteiro (arroz, feijão, frango e o que mais tiver). Toque no ícone de câmera ao lado do nome da refeição (Almoço, Jantar...) para tirar a foto, escolher da galeria, ver ou remover.

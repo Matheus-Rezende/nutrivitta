@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
@@ -161,8 +163,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     try {
       await _remote.saveGoals(_uid, stamped);
       if (!mounted) return;
+      unawaited(_signal('goals'));
       setState(() => _goals = stamped);
-      showSnack(context, 'Metas atualizadas. O paciente verá na próxima sincronização.');
+      showSnack(context, 'Metas atualizadas. O paciente vê em alguns segundos com o app aberto.');
     } catch (e) {
       if (mounted) showSnack(context, 'Não foi possível salvar as metas agora.');
     }
@@ -194,7 +197,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     final comment = DayComment(key, value, _me);
     try {
       await _remote.setComment(_uid, comment);
-      if (!mounted || key != dateKey(_date)) return;
+      if (!mounted) return;
+      unawaited(_signal('comments'));
+      if (key != dateKey(_date)) return;
       setState(() => _comment = value.isEmpty ? null : comment);
       if (value.isNotEmpty) showSnack(context, 'Recado salvo. O paciente recebe o aviso no app.');
     } catch (e) {
@@ -211,10 +216,18 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     final list = BodyMeasure.upsert(_measures ?? const [], m);
     try {
       await _remote.saveMeasures(_uid, list);
-      if (mounted) setState(() => _measures = list);
+      if (!mounted) return;
+      unawaited(_signal('measures'));
+      setState(() => _measures = list);
     } catch (e) {
       if (mounted) showSnack(context, 'Não foi possível salvar as medidas agora.');
     }
+  }
+
+  /// Avisa o app do paciente para buscar os dados de novo.
+  Future<void> _signal(String what) {
+    final state = ProScope.read(context);
+    return state.signalChange(state.current(widget.link), what);
   }
 
   Future<void> _askAnamnesis() async {
@@ -243,7 +256,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     final stamped = Anamnesis(a.answers, DateTime.now().toUtc().toIso8601String(), _me);
     try {
       await _remote.saveAnamnesis(_uid, stamped);
-      if (mounted) setState(() => _anamnesis = stamped);
+      if (!mounted) return;
+      unawaited(_signal('anamnesis'));
+      setState(() => _anamnesis = stamped);
     } on CloudException catch (e) {
       if (mounted) {
         showSnack(context,

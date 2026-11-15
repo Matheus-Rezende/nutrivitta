@@ -7,8 +7,8 @@ rules_version = '2';
 // - O nutricionista só lê os dados de quem aceitou o pedido de conexão:
 //   o uid dele precisa estar em users/{paciente}.nutritionistUids, lista que
 //   só o próprio paciente altera.
-// - O nutricionista pode ajustar metas e medidas e deixar recados; não altera
-//   o diário nem as fotos.
+// - O nutricionista pode ajustar metas e medidas e deixar recados (que o
+//   paciente pode apagar); não altera o diário nem as fotos.
 // - A anamnese só pode ser editada pelo nutricionista com permissão do
 //   paciente, que vale por tempo limitado (links/{pro}_{paciente}.anamnesisUntil).
 // - Só contas com o e-mail confirmado acessam o banco.
@@ -68,6 +68,8 @@ service cloud.firestore {
       match /comments/{day} {
         allow read: if canRead(uid);
         allow write: if proOf(uid);
+        // o paciente pode apagar um recado
+        allow delete: if isMe(uid);
       }
     }
 

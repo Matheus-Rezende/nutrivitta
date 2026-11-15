@@ -88,6 +88,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     final uid = _account.uid;
     if (_polling || busy || !_account.online || uid == null || !_state.onboarded) return;
     _polling = true;
+    var pullAgain = false;
     try {
       final results = await Future.wait<Object>([
         _remote.linksOfPatient(uid),
@@ -97,14 +98,19 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       final recent = results[1] as Map<String, DayComment>;
       final before = {for (final l in _state.links) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}'};
       final after = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}'};
-      if (!mapEquals(before, after)) await _applyLinks(uid, links);
+      // o nutricionista mudou metas, medidas, anamnese ou recados
+      final changedBefore = {for (final l in _state.links) l.id: l.changeAt};
+      final dataChanged = links.any((l) => l.accepted && l.changeAt.isNotEmpty && changedBefore[l.id] != l.changeAt);
+      if (!mapEquals(before, after) || dataChanged) await _applyLinks(uid, links);
       final changed = recent.entries.any((e) => _state.comment(e.key)?.updatedAt != e.value.updatedAt);
       if (changed) _state.setComments({..._state.comments, ...recent});
       await Background.report(links, recent);
+      if (dataChanged) pullAgain = true;
     } catch (e) {
       debugPrint('Verificação rápida: $e');
     }
     _polling = false;
+    if (pullAgain) unawaited(refresh(userAsked: false));
   }
 
   /// Tenta de novo buscar os dados salvos (tela de erro do cadastro).
@@ -128,10 +134,37 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Sai da conta neste aparelho; os dados continuam aqui e na nuvem.
+  /// Sai da conta neste aparelho; os dados continuam na nuvem.
   Future<void> signOut() async {
     await Background.instance.disable();
     await _account.signOut();
+  }
+
+  /// Envia o que falta e devolve quantas alterações ainda não subiram.
+  Future<int> flush() async {
+    if (_account.online && _state.dirty.isNotEmpty) {
+      _debounce?.cancel();
+      await run();
+      while (busy || _again) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+    return _account.signedIn ? _state.dirty.length : 0;
+  }
+
+  /// Sai da conta e limpa este aparelho: o app volta para a tela de entrar.
+  /// Tudo o que já foi enviado volta quando a pessoa entrar de novo.
+  Future<void> signOutAndClear() async {
+    await signOut();
+    await _state.wipe();
+  }
+
+  /// O paciente apaga o recado do nutricionista de um dia.
+  Future<void> deleteComment(String date) async {
+    final uid = _account.uid;
+    if (!_account.online || uid == null) throw StateError('offline');
+    await _remote.deleteComment(uid, date);
+    _state.setComments({..._state.comments}..remove(date));
   }
 
   void _changed() {

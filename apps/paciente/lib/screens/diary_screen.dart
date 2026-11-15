@@ -64,6 +64,23 @@ class _DiaryScreenState extends State<DiaryScreen> {
     if (updated != null) state.updateEntry(oldDate, updated);
   }
 
+  Future<void> _deleteComment(DayComment c) async {
+    final ok = await confirm(
+      context,
+      title: 'Apagar o recado?',
+      text: 'O recado ${c.author.isEmpty ? 'do nutricionista' : 'de ${c.author}'} sai do seu diário e também da ficha '
+          'que o nutricionista vê. Não dá para desfazer.',
+      ok: 'Apagar',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await Sync.instance.deleteComment(c.date);
+      if (mounted) showSnack(context, 'Recado apagado.');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Não foi possível apagar agora. Confira a internet e tente de novo.');
+    }
+  }
+
   void _delete(FoodEntry entry) {
     final state = AppScope.read(context);
     state.removeEntry(dateKey(entry.time), entry.id);
@@ -133,6 +150,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               loadPhoto: (meal) => loadMealPhoto(state, key, meal),
               onMealPhoto: (meal) => showMealPhotoSheet(context, date: key, meal: meal),
               photoCacheScope: 'me',
+              onDeleteComment: _deleteComment,
             ),
           ],
         ),

@@ -121,6 +121,9 @@ class Remote {
     }
   }
 
+  /// O paciente apaga um recado do nutricionista.
+  Future<void> deleteComment(String patientUid, String date) => _db.delete('users/$patientUid/comments/$date');
+
   // ---- código do paciente (o nutricionista encontra o paciente por ele) ----
 
   /// Letras e números sem os que se confundem (0/O, 1/I/L).

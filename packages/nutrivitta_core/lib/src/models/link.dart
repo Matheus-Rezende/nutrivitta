@@ -33,7 +33,29 @@ class Link {
     this.anamnesisRequestedAt = '',
     this.anamnesisAnsweredAt = '',
     this.anamnesisUntil = 0,
+    this.changeWhat = '',
+    this.changeAt = '',
   });
+
+  /// Último dado do paciente alterado pelo nutricionista ('goals',
+  /// 'measures', 'anamnesis' ou 'comments') e quando (ISO 8601). O app do
+  /// paciente já consulta o vínculo a cada poucos segundos; quando este
+  /// campo muda, ele busca os dados de novo.
+  final String changeWhat;
+  final String changeAt;
+
+  /// Campos que avisam o paciente de uma alteração do nutricionista.
+  static Map<String, dynamic> changeFields(String what) =>
+      {'changeWhat': what, 'changeAt': DateTime.now().toUtc().toIso8601String()};
+
+  /// Texto do aviso ao paciente para cada tipo de alteração.
+  String get changeLabel => switch (changeWhat) {
+        'goals' => 'atualizou suas metas',
+        'measures' => 'atualizou suas medidas',
+        'anamnesis' => 'atualizou sua anamnese',
+        'comments' => 'atualizou um recado',
+        _ => 'atualizou seus dados',
+      };
 
   /// Pedido do nutricionista para editar a anamnese:
   /// '' (nenhum), 'pending', 'granted' ou 'denied'.
@@ -86,6 +108,8 @@ class Link {
         anamnesisRequestedAt: anamnesisRequestedAt ?? this.anamnesisRequestedAt,
         anamnesisAnsweredAt: anamnesisAnsweredAt ?? this.anamnesisAnsweredAt,
         anamnesisUntil: anamnesisUntil ?? this.anamnesisUntil,
+        changeWhat: changeWhat,
+        changeAt: changeAt,
       );
 
   final String proUid;
@@ -128,6 +152,8 @@ class Link {
         'anamnesisRequestedAt': anamnesisRequestedAt,
         'anamnesisAnsweredAt': anamnesisAnsweredAt,
         'anamnesisUntil': anamnesisUntil,
+        'changeWhat': changeWhat,
+        'changeAt': changeAt,
       };
 
   static Link fromJson(Map<String, dynamic> j) => Link(
@@ -145,6 +171,8 @@ class Link {
         anamnesisRequestedAt: (j['anamnesisRequestedAt'] as String?) ?? '',
         anamnesisAnsweredAt: (j['anamnesisAnsweredAt'] as String?) ?? '',
         anamnesisUntil: j['anamnesisUntil'] is num ? (j['anamnesisUntil'] as num).toInt() : 0,
+        changeWhat: (j['changeWhat'] as String?) ?? '',
+        changeAt: (j['changeAt'] as String?) ?? '',
       );
 }
 
