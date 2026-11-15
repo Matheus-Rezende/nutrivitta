@@ -8,12 +8,9 @@ on:
 
 env:
   FLUTTER_VERSION: 3.47.9
-  # Configuração da nuvem (Settings > Secrets and variables > Actions > Variables).
-  # Nenhum destes valores é segredo. Veja CONFIGURACAO.md.
-  DEFINES: >-
-    --dart-define=GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
-    --dart-define=FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }}
-    --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+  # A configuração da nuvem (IDs do Google/Firebase) está em
+  # packages/nutrivitta_core/lib/src/config.dart. Nenhum valor é segredo.
+  DEFINES: ''
 
 jobs:
   core:

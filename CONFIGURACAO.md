@@ -19,11 +19,11 @@ Valores do projeto (nenhum é secreto):
 
 ## Falta fazer
 
-### 1. Publicar as regras do banco
+### 1. Publicar as regras do banco (feito em 14/11/2026)
 
 Firestore Database > **Regras**: apague o conteúdo, cole o arquivo [`firestore.rules`](firestore.rules) e clique em **Publicar**. Sem isso o app mostra "A nuvem recusou o acesso".
 
-### 2. Chave de assinatura
+### 2. Chave de assinatura (feito em 14/11/2026, SHA-1 `69:9F:9E:37:56:FB:DA:B0:1C:39:AB:8D:21:E8:CB:F8:A8:B2:ED:74`)
 
 O login Google só funciona em APKs assinados com uma chave cujo SHA-1 esteja cadastrado. Uma chave serve para os dois apps.
 
@@ -36,7 +36,7 @@ O login Google só funciona em APKs assinados com uma chave cujo SHA-1 esteja ca
    keytool -list -v -keystore nutrivitta.jks -alias nutrivitta
    ```
 
-### 3. Registrar os dois apps Android
+### 3. Registrar os dois apps Android (feito em 14/11/2026)
 
 Em **Configurações do projeto > Geral > Seus apps > Adicionar app > Android**, duas vezes:
 
@@ -56,11 +56,13 @@ Google Cloud > **APIs e serviços > Tela de permissão OAuth**:
 
 ### 5. Valores no GitHub
 
-No repositório, **Settings > Secrets and variables > Actions**:
-- **Variables**: `GOOGLE_WEB_CLIENT_ID`, `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`.
-- **Secrets**: `ANDROID_KEYSTORE_BASE64` (saída de `base64 -w0 nutrivitta.jks`) e `ANDROID_KEYSTORE_PASSWORD`.
+O ID do cliente da Web, a chave de API e o ID do projeto já estão em `packages/nutrivitta_core/lib/src/config.dart` (não são segredos: vão dentro dos apps; a proteção vem das regras do banco).
 
-O fluxo `.github/workflows/flutter.yml` gera os dois APKs com esses valores. Para compilar na sua máquina, crie `apps/<app>/android/key.properties` (já está no `.gitignore`):
+No repositório, **Settings > Secrets and variables > Actions > Secrets**, crie:
+- `ANDROID_KEYSTORE_PASSWORD`: a senha da chave;
+- `ANDROID_KEYSTORE_BASE64`: o arquivo da chave em base64 (Linux: `base64 -w0 nutrivitta.jks`; Windows/PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\nutrivitta.jks")) | Set-Clipboard`).
+
+O fluxo `.github/workflows/flutter.yml` gera os dois APKs assinados com essa chave. Para compilar na sua máquina, crie `apps/<app>/android/key.properties` (já está no `.gitignore`):
 ```
 storeFile=/caminho/para/nutrivitta.jks
 storePassword=SUA_SENHA
