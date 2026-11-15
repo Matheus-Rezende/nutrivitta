@@ -61,7 +61,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final state = AppScope.read(context);
     final oldDate = dateKey(entry.time);
     final updated = await editPortion(context, entry);
-    if (updated != null) state.updateEntry(oldDate, updated);
+    if (updated == null) return;
+    final dropped = state.updateEntry(oldDate, updated);
+    if (dropped && mounted) {
+      showSnack(context, 'A foto do prato de ${entry.meal.label} saiu, porque a refeição ficou sem alimentos.');
+    }
   }
 
   Future<void> _deleteComment(DayComment c) async {
@@ -83,8 +87,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   void _delete(FoodEntry entry) {
     final state = AppScope.read(context);
-    state.removeEntry(dateKey(entry.time), entry.id);
-    showSnack(context, '${entry.name} removido.',
+    final dropped = state.removeEntry(dateKey(entry.time), entry.id);
+    showSnack(
+        context,
+        dropped
+            ? '${entry.name} removido. A foto do prato de ${entry.meal.label} também saiu, porque a refeição ficou vazia.'
+            : '${entry.name} removido.',
         action: SnackBarAction(label: 'Desfazer', onPressed: () => state.addEntry(entry)));
   }
 

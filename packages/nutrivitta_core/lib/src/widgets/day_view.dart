@@ -187,7 +187,8 @@ class _MealCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Text(meal.label, style: text.titleMedium)),
                 if (entries.isNotEmpty) Text('${fmt(kcal)} kcal', style: text.labelLarge),
-                if (onMealPhoto != null)
+                // foto do prato só em refeição com pelo menos um alimento
+                if (onMealPhoto != null && (entries.isNotEmpty || day.hasPhoto(meal)))
                   IconButton(
                     tooltip: day.hasPhoto(meal) ? 'Foto do prato' : 'Tirar foto do prato',
                     onPressed: () => onMealPhoto!(meal),

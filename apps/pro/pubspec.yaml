@@ -1,7 +1,7 @@
 name: nutrivitta_pro
 description: NutriVitta Pro - acompanhamento alimentar dos pacientes pelo nutricionista.
 publish_to: 'none'
-version: 0.9.0+11
+version: 0.9.1+12
 
 environment:
   sdk: ^3.13.0

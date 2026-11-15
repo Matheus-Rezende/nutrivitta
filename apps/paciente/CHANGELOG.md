@@ -2,6 +2,11 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.9.1
+
+- A foto do prato só pode ser adicionada em refeição com pelo menos um alimento: o ícone de câmera aparece depois que você registra o primeiro item.
+- Se a refeição ficar sem alimentos (removendo o último ou mudando ele de refeição), a foto do prato sai junto, e o app avisa.
+
 ## 0.9.0
 
 - **O nutricionista vê em tempo real**: o que você registra (alimentos, foto do prato, água, peso, medidas, anamnese e perfil) aparece na ficha que o nutricionista está vendo em até cerca de 15 segundos depois de enviado.

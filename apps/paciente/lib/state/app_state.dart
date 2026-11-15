@@ -208,13 +208,14 @@ class AppState extends ChangeNotifier {
     _saveDay(d);
   }
 
-  /// Troca um registro (a data pode ter mudado).
-  void updateEntry(String oldDate, FoodEntry e) {
+  /// Troca um registro (a data pode ter mudado). Devolve true se a foto do
+  /// prato saiu porque a refeição de origem ficou sem alimentos.
+  bool updateEntry(String oldDate, FoodEntry e) {
     final newDate = dateKey(e.time);
     if (oldDate != newDate) {
-      removeEntry(oldDate, e.id);
+      final dropped = removeEntry(oldDate, e.id);
       addEntry(e);
-      return;
+      return dropped;
     }
     final d = day(oldDate);
     final i = d.entries.indexWhere((x) => x.id == e.id);
@@ -223,19 +224,39 @@ class AppState extends ChangeNotifier {
     } else {
       d.entries[i] = e;
     }
+    final dropped = _dropOrphanPhotos(d);
     _saveDay(d);
+    return dropped;
   }
 
-  void removeEntry(String date, String id) {
+  /// Remove um registro. Devolve true se a foto do prato também saiu (a
+  /// refeição ficou sem alimentos).
+  bool removeEntry(String date, String id) {
     final d = day(date);
     d.entries.removeWhere((x) => x.id == id);
+    final dropped = _dropOrphanPhotos(d);
     _saveDay(d);
+    return dropped;
+  }
+
+  /// A foto do prato só existe em refeição com pelo menos um alimento.
+  bool _dropOrphanPhotos(DayLog d) {
+    final orphans = [for (final m in d.photos.keys) if (d.of(m).isEmpty) m];
+    for (final m in orphans) {
+      final id = d.photoIdOf(m);
+      _prefs.remove('$_kPhotoPrefix$id');
+      clearDirty(dirtyPhoto(id));
+      _mark(dirtyPhotoDelete(id));
+      d.photos.remove(m);
+    }
+    return orphans.isNotEmpty;
   }
 
   /// Foto do prato de uma refeição (JPEG em base64): fica no aparelho até
   /// ser enviada. Uma foto por refeição; a nova substitui a anterior.
   void setMealPhoto(String date, Meal meal, String base64Jpeg) {
     final d = day(date);
+    if (d.of(meal).isEmpty) return;
     final id = d.photoIdOf(meal);
     _prefs.setString('$_kPhotoPrefix$id', base64Jpeg);
     clearDirty(dirtyPhotoDelete(id));

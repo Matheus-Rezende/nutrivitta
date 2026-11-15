@@ -2,6 +2,10 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.9.1
+
+- A foto do prato agora só existe em refeições com pelo menos um alimento registrado pelo paciente.
+
 ## 0.9.0
 
 - **Ficha do paciente em tempo real**: com a ficha aberta, o que o paciente registra (alimentos, foto do prato, água, peso, medidas, anamnese e perfil) aparece sozinho em poucos segundos, sem precisar sair e entrar de novo.

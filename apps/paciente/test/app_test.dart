@@ -49,6 +49,25 @@ void main() {
     expect(find.text('248 kcal'), findsWidgets);
     expect(state.dirty, contains(AppState.dirtyDay(dateKey(DateTime.now()))));
 
+    // foto do prato: só em refeição com alimento, e sai quando a refeição esvazia
+    final today = dateKey(DateTime.now());
+    state.setMealPhoto(today, Meal.dinner, 'AAAA');
+    expect(state.day(today).hasPhoto(Meal.dinner), isFalse);
+    state.setMealPhoto(today, Meal.lunch, 'AAAA');
+    expect(state.day(today).hasPhoto(Meal.lunch), isTrue);
+    expect(state.removeEntry(today, 'x1'), isTrue);
+    expect(state.day(today).hasPhoto(Meal.lunch), isFalse);
+    expect(state.dirty, contains(AppState.dirtyPhotoDelete('${today}_lunch')));
+    state.addEntry(FoodEntry(
+        id: 'x1',
+        time: DateTime.now(),
+        meal: Meal.lunch,
+        foodId: 'taco:1',
+        name: 'Arroz',
+        grams: 200,
+        nutrients: per100.scale(2)));
+    await tester.pumpAndSettle();
+
     // pedido de conexão aparece no diário e no perfil
     state.setLinks(const [Link(proUid: 'p1', patientUid: 'u1', proName: 'Dra. Bia', proCrn: 'CRN-3 123')]);
     await tester.pumpAndSettle();
@@ -72,7 +91,7 @@ void main() {
     expect(state.pendingAnamnesis, hasLength(1));
     expect(state.pendingCount, 1);
 
-    // anamnese e medidas entram na fila de envio e na cópia do Drive
+    // anamnese e medidas entram na fila de envio
     state.saveMeasure(const BodyMeasure('2026-11-01', {'waist': 80}));
     state.setAnamnesis(const Anamnesis({'goal': 'Mais energia'}));
     expect(state.dirty, containsAll([AppState.dirtyMeasures, AppState.dirtyAnamnesis]));
