@@ -85,6 +85,9 @@ jobs:
           APP: ${{ matrix.app }}
         run: |
           flutter pub get
+          # não publica versão com erro: análise e testes antes de gerar os APKs
+          flutter analyze --no-fatal-infos
+          flutter test
           mkdir -p out
           # universal: para quem instala à mão
           flutter build apk --release

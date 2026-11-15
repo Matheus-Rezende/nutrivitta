@@ -19,7 +19,7 @@ class _PatientShellState extends State<PatientShell> {
 
   @override
   Widget build(BuildContext context) {
-    final pending = AppScope.of(context).pendingLinks.length;
+    final pending = AppScope.of(context).pendingCount;
     return Scaffold(
       body: IndexedStack(
         index: _tab,

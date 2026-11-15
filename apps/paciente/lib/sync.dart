@@ -93,8 +93,8 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       ]);
       final links = results[0] as List<Link>;
       final recent = results[1] as Map<String, DayComment>;
-      final before = {for (final l in _state.links) l.id: '${l.status.name}|${l.updatedAt}'};
-      final after = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}'};
+      final before = {for (final l in _state.links) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}'};
+      final after = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}'};
       if (!mapEquals(before, after)) await _applyLinks(uid, links);
       final changed = recent.entries.any((e) => _state.comment(e.key)?.updatedAt != e.value.updatedAt);
       if (changed) _state.setComments({..._state.comments, ...recent});
@@ -270,6 +270,25 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     _state.setLinks([
       for (final l in _state.links) l.id == link.id ? l.withStatus(status) : l,
     ]);
+  }
+
+  /// O paciente responde ao pedido de edição da anamnese ([grant]) ou revoga
+  /// uma permissão já dada ([grant] = false).
+  Future<void> answerAnamnesis(Link link, {required bool grant}) async {
+    if (!_account.online) throw StateError('offline');
+    final now = DateTime.now();
+    final updated = link.copyWith(
+      anamnesisRequest: grant ? 'granted' : 'denied',
+      anamnesisAnsweredAt: now.toUtc().toIso8601String(),
+      anamnesisUntil: grant ? now.add(Link.anamnesisGrant).millisecondsSinceEpoch : 0,
+    );
+    await _remote.updateLink(updated, {
+      'anamnesisRequest': updated.anamnesisRequest,
+      'anamnesisAnsweredAt': updated.anamnesisAnsweredAt,
+      'anamnesisUntil': updated.anamnesisUntil,
+      'updatedAt': updated.updatedAt,
+    });
+    _state.setLinks([for (final l in _state.links) l.id == link.id ? updated : l]);
   }
 
   Future<void> _restoreFromFirestore(String uid, Map<String, dynamic> user) async {

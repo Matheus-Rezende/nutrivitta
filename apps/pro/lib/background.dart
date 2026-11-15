@@ -41,7 +41,7 @@ class ProAlerts {
   static Future<void> enable() => Alerts.enable();
 
   static Future<void> report(List<Link> links) async {
-    final alerts = [
+    final alerts = <Alert>[
       for (final l in links)
         if (l.status == LinkStatus.accepted || l.status == LinkStatus.declined || l.status == LinkStatus.ended)
           Alert(
@@ -54,6 +54,20 @@ class ProAlerts {
             l.accepted ? 'Abra o NutriVitta Pro para acompanhar a alimentação.' : 'A conexão não está ativa.',
           ),
     ];
+    for (final l in links) {
+      if (!l.accepted || l.anamnesisAnsweredAt.isEmpty) continue;
+      if (l.anamnesisRequest != 'granted' && l.anamnesisRequest != 'denied') continue;
+      final until = l.anamnesisUntilTime;
+      alerts.add(Alert(
+        'anam:${l.id}:${l.anamnesisRequest}:${l.anamnesisAnsweredAt}',
+        l.anamnesisRequest == 'granted'
+            ? '${l.patientLabel} permitiu editar a anamnese'
+            : '${l.patientLabel} não permitiu editar a anamnese',
+        l.anamnesisRequest == 'granted' && until != null
+            ? 'Você pode editar até ${shortDate(until)} às ${hourMinute(until)}.'
+            : 'Você continua vendo a anamnese, sem editar.',
+      ));
+    }
     // na primeira verificação do aparelho, o que já existia não vira notificação
     final first = await Alerts.firstRun();
     await Alerts.deliver(first ? const [] : alerts, quietKeys: first ? {for (final a in alerts) a.key} : const {});

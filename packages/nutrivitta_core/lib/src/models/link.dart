@@ -29,7 +29,64 @@ class Link {
     this.status = LinkStatus.pending,
     this.createdAt = '',
     this.updatedAt = '',
+    this.anamnesisRequest = '',
+    this.anamnesisRequestedAt = '',
+    this.anamnesisAnsweredAt = '',
+    this.anamnesisUntil = 0,
   });
+
+  /// Pedido do nutricionista para editar a anamnese:
+  /// '' (nenhum), 'pending', 'granted' ou 'denied'.
+  final String anamnesisRequest;
+  final String anamnesisRequestedAt;
+  final String anamnesisAnsweredAt;
+
+  /// Até quando (milissegundos desde 1970) o nutricionista pode editar a
+  /// anamnese. As regras do banco conferem este campo.
+  final int anamnesisUntil;
+
+  /// Por quanto tempo vale a permissão concedida pelo paciente.
+  static const anamnesisGrant = Duration(hours: 24);
+
+  bool get anamnesisPending => accepted && anamnesisRequest == 'pending';
+
+  bool get canEditAnamnesis => accepted && anamnesisUntil > DateTime.now().millisecondsSinceEpoch;
+
+  DateTime? get anamnesisUntilTime =>
+      anamnesisUntil <= 0 ? null : DateTime.fromMillisecondsSinceEpoch(anamnesisUntil);
+
+  /// Campos do pedido de edição (para gravar só eles).
+  Map<String, dynamic> anamnesisFields() => {
+        'anamnesisRequest': anamnesisRequest,
+        'anamnesisRequestedAt': anamnesisRequestedAt,
+        'anamnesisAnsweredAt': anamnesisAnsweredAt,
+        'anamnesisUntil': anamnesisUntil,
+        'updatedAt': updatedAt,
+      };
+
+  Link copyWith({
+    LinkStatus? status,
+    String? anamnesisRequest,
+    String? anamnesisRequestedAt,
+    String? anamnesisAnsweredAt,
+    int? anamnesisUntil,
+  }) =>
+      Link(
+        proUid: proUid,
+        patientUid: patientUid,
+        proName: proName,
+        proCrn: proCrn,
+        patientName: patientName,
+        patientEmail: patientEmail,
+        message: message,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        updatedAt: DateTime.now().toUtc().toIso8601String(),
+        anamnesisRequest: anamnesisRequest ?? this.anamnesisRequest,
+        anamnesisRequestedAt: anamnesisRequestedAt ?? this.anamnesisRequestedAt,
+        anamnesisAnsweredAt: anamnesisAnsweredAt ?? this.anamnesisAnsweredAt,
+        anamnesisUntil: anamnesisUntil ?? this.anamnesisUntil,
+      );
 
   final String proUid;
   final String patientUid;
@@ -54,18 +111,7 @@ class Link {
   /// Rótulo do paciente para quem o vê no app Pro.
   String get patientLabel => patientName.isNotEmpty ? patientName : patientEmail;
 
-  Link withStatus(LinkStatus s) => Link(
-        proUid: proUid,
-        patientUid: patientUid,
-        proName: proName,
-        proCrn: proCrn,
-        patientName: patientName,
-        patientEmail: patientEmail,
-        message: message,
-        status: s,
-        createdAt: createdAt,
-        updatedAt: DateTime.now().toUtc().toIso8601String(),
-      );
+  Link withStatus(LinkStatus s) => copyWith(status: s);
 
   Map<String, dynamic> toJson() => {
         'proUid': proUid,
@@ -78,6 +124,10 @@ class Link {
         'status': status.name,
         'createdAt': createdAt.isEmpty ? DateTime.now().toUtc().toIso8601String() : createdAt,
         'updatedAt': updatedAt.isEmpty ? DateTime.now().toUtc().toIso8601String() : updatedAt,
+        'anamnesisRequest': anamnesisRequest,
+        'anamnesisRequestedAt': anamnesisRequestedAt,
+        'anamnesisAnsweredAt': anamnesisAnsweredAt,
+        'anamnesisUntil': anamnesisUntil,
       };
 
   static Link fromJson(Map<String, dynamic> j) => Link(
@@ -91,6 +141,10 @@ class Link {
         status: LinkStatus.parse(j['status']),
         createdAt: (j['createdAt'] as String?) ?? '',
         updatedAt: (j['updatedAt'] as String?) ?? '',
+        anamnesisRequest: (j['anamnesisRequest'] as String?) ?? '',
+        anamnesisRequestedAt: (j['anamnesisRequestedAt'] as String?) ?? '',
+        anamnesisAnsweredAt: (j['anamnesisAnsweredAt'] as String?) ?? '',
+        anamnesisUntil: j['anamnesisUntil'] is num ? (j['anamnesisUntil'] as num).toInt() : 0,
       );
 }
 

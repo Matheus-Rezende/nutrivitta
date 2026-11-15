@@ -17,6 +17,7 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 - Resumo de 7 ou 30 dias, histórico de peso e **medidas corporais** (circunferências e % de gordura).
 - Preenche a **anamnese**: objetivo, rotina, sono, alimentação, alergias, saúde e medicamentos.
 - Recebe o **pedido de conexão** do nutricionista, aceita ou recusa, e pode desconectar quando quiser.
+- Decide se o nutricionista pode **editar a anamnese** (permissão de 24 horas, revogável).
 - Recebe notificação de pedido novo e de recado do nutricionista.
 
 ## NutriVitta Pro (nutricionista)
@@ -25,7 +26,8 @@ A parte comum (modelos, acesso à nuvem, tema, componentes de tela, tabela TACO 
 - Envia o pedido de conexão pelo **e-mail Google** do paciente, com uma mensagem opcional.
 - Vê a lista de pacientes conectados, de pedidos aguardando resposta e de recusados.
 - Na ficha de cada paciente: diário dia a dia com as fotos, resumo do período, peso, dados do perfil, medidas e anamnese.
-- Define as metas do paciente, registra avaliações de medidas, edita a anamnese e deixa um recado por dia.
+- Define as metas do paciente, registra avaliações de medidas e deixa um recado por dia.
+- Edita a anamnese só com permissão do paciente: pede pelo app, o paciente permite ou não, e a permissão vale por 24 horas (o paciente pode revogar antes).
 
 ## Como funciona a conexão
 

@@ -7,8 +7,10 @@ rules_version = '2';
 // - O nutricionista só lê os dados de quem aceitou o pedido de conexão:
 //   o uid dele precisa estar em users/{paciente}.nutritionistUids, lista que
 //   só o próprio paciente altera.
-// - O nutricionista pode ajustar metas, anamnese e medidas e deixar recados;
-//   não altera o diário nem as fotos.
+// - O nutricionista pode ajustar metas e medidas e deixar recados; não altera
+//   o diário nem as fotos.
+// - A anamnese só pode ser editada pelo nutricionista com permissão do
+//   paciente, que vale por tempo limitado (links/{pro}_{paciente}.anamnesisUntil).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -27,6 +29,14 @@ service cloud.firestore {
 
     function canRead(patient) {
       return isMe(patient) || proOf(patient);
+    }
+
+    // o paciente permitiu, e a permissão ainda vale
+    function anamnesisGranted(patient) {
+      let link = get(/databases/$(database)/documents/links/$(request.auth.uid + '_' + patient)).data;
+      return proOf(patient)
+        && link.status == 'accepted'
+        && link.get('anamnesisUntil', 0) > request.time.toMillis();
     }
 
     // ---- paciente ----
@@ -49,7 +59,9 @@ service cloud.firestore {
       }
       match /meta/{doc} {
         allow read: if canRead(uid);
-        allow write: if isMe(uid) || (proOf(uid) && doc in ['anamnesis', 'measures']);
+        allow write: if isMe(uid)
+          || (doc == 'measures' && proOf(uid))
+          || (doc == 'anamnesis' && anamnesisGranted(uid));
       }
       match /comments/{day} {
         allow read: if canRead(uid);
@@ -78,22 +90,37 @@ service cloud.firestore {
       allow read: if signedIn()
         && (resource.data.proUid == request.auth.uid || resource.data.patientUid == request.auth.uid);
 
-      // o nutricionista envia o pedido
+      // o nutricionista não pode se dar permissão na anamnese:
+      // só zera o prazo ou o mantém, e só pede (pending) ou limpa o pedido
+      function proKeepsAnamnesis() {
+        return (request.resource.data.get('anamnesisUntil', 0) == 0
+            || request.resource.data.get('anamnesisUntil', 0) == resource.data.get('anamnesisUntil', 0))
+          && (request.resource.data.get('anamnesisRequest', '') in ['', 'pending']
+            || request.resource.data.get('anamnesisRequest', '') == resource.data.get('anamnesisRequest', ''));
+      }
+
+      // o nutricionista envia o pedido de conexão
       allow create: if signedIn()
         && request.resource.data.proUid == request.auth.uid
         && id == request.resource.data.proUid + '_' + request.resource.data.patientUid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.get('anamnesisUntil', 0) == 0
+        && request.resource.data.get('anamnesisRequest', '') == '';
 
       allow update: if signedIn() && (
-        // o nutricionista reenvia, cancela ou encerra; não pode se aceitar sozinho
+        // o nutricionista reenvia, cancela, encerra ou pede para editar a
+        // anamnese; não pode se aceitar sozinho
         (resource.data.proUid == request.auth.uid
           && request.resource.data.proUid == resource.data.proUid
           && request.resource.data.patientUid == resource.data.patientUid
-          && request.resource.data.status in ['pending', 'cancelled', 'ended']
-          && !(resource.data.status == 'accepted' && request.resource.data.status == 'pending'))
-        // o paciente responde: só o status muda
+          && (request.resource.data.status == resource.data.status
+            || request.resource.data.status in ['pending', 'cancelled', 'ended'])
+          && !(resource.data.status == 'accepted' && request.resource.data.status == 'pending')
+          && proKeepsAnamnesis())
+        // o paciente responde ao pedido de conexão e ao pedido de edição
         || (resource.data.patientUid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['status', 'updatedAt', 'anamnesisRequest', 'anamnesisAnsweredAt', 'anamnesisUntil'])
           && request.resource.data.status in ['accepted', 'declined', 'ended'])
       );
 

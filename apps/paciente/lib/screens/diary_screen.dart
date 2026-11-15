@@ -118,7 +118,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 ),
               ],
             ),
-            for (final l in state.pendingLinks.take(1))
+            for (final (l, what) in [
+              ...state.pendingLinks.map((l) => (l, 'quer acompanhar sua alimentação')),
+              ...state.pendingAnamnesis.map((l) => (l, 'pediu para editar sua anamnese')),
+            ].take(2))
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Card(
@@ -126,8 +129,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
                   clipBehavior: Clip.antiAlias,
                   child: ListTile(
                     leading: const Icon(Icons.mark_email_unread_outlined),
-                    title: Text('${l.proName.isEmpty ? 'Um nutricionista' : l.proName} quer acompanhar sua alimentação'),
-                    subtitle: const Text('Toque para aceitar ou recusar'),
+                    title: Text('${l.proName.isEmpty ? 'Um nutricionista' : l.proName} $what'),
+                    subtitle: const Text('Toque para responder'),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConnectionsScreen())),
                   ),
                 ),

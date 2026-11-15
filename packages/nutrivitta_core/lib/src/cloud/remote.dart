@@ -159,4 +159,8 @@ class Remote {
       mask: const ['status', 'updatedAt']);
 
   Future<void> deleteLink(Link l) => _db.delete('links/${l.id}');
+
+  /// Grava só alguns campos do vínculo (os outros ficam como estão).
+  Future<void> updateLink(Link l, Map<String, dynamic> fields) =>
+      _db.set('links/${l.id}', fields, mask: fields.keys.toList());
 }

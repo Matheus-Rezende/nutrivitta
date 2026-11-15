@@ -191,7 +191,7 @@ class ProfileScreen extends StatelessWidget {
     final p = state.profile;
     final g = state.goals;
     final a = state.anamnesis;
-    final pending = state.pendingLinks.length;
+    final pending = state.pendingCount;
     final connected = state.connectedLinks;
     return Scaffold(
       appBar: AppBar(
@@ -225,7 +225,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               title: const Text('Nutricionistas'),
               subtitle: Text(pending > 0
-                  ? (pending == 1 ? '1 pedido de conexão aguardando você' : '$pending pedidos de conexão aguardando você')
+                  ? (pending == 1 ? '1 pedido aguardando você' : '$pending pedidos aguardando você')
                   : connected.isEmpty
                       ? 'Nenhum nutricionista conectado'
                       : 'Conectado com ${connected.map((l) => l.proName).join(', ')}'),

@@ -114,8 +114,8 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final fresh = await _remote.linksOfPro(uid);
       fresh.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      final before = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}'};
-      final after = {for (final l in fresh) l.id: '${l.status.name}|${l.updatedAt}'};
+      final before = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}|${l.anamnesisUntil}'};
+      final after = {for (final l in fresh) l.id: '${l.status.name}|${l.updatedAt}|${l.anamnesisRequest}|${l.anamnesisUntil}'};
       if (!mapEquals(before, after)) {
         links = fresh;
         error = null;
@@ -211,10 +211,27 @@ class ProState extends ChangeNotifier with WidgetsBindingObserver {
     final closed = link.withStatus(status);
     // a própria ação não vira notificação
     await Alerts.deliver(const [], quietKeys: {'link:${closed.id}:${closed.status.name}:${closed.updatedAt}'});
-    await _remote.saveLink(closed);
+    // só o status muda (o resto do vínculo fica como está no banco)
+    await _remote.updateLink(closed, {'status': closed.status.name, 'updatedAt': closed.updatedAt});
     links = [for (final l in links) l.id == link.id ? closed : l];
     notifyListeners();
   }
+
+  /// Pede ao paciente permissão para editar a anamnese.
+  Future<void> requestAnamnesis(Link link) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final asked = link.copyWith(anamnesisRequest: 'pending', anamnesisRequestedAt: now);
+    await _remote.updateLink(asked, {
+      'anamnesisRequest': 'pending',
+      'anamnesisRequestedAt': now,
+      'updatedAt': asked.updatedAt,
+    });
+    links = [for (final l in links) l.id == link.id ? asked : l];
+    notifyListeners();
+  }
+
+  /// Vínculo atualizado (a lista é renovada a cada 15 segundos).
+  Link current(Link link) => links.where((l) => l.id == link.id).firstOrNull ?? link;
 
   /// Tira da lista um pedido recusado, cancelado ou encerrado.
   Future<void> forget(Link link) async {

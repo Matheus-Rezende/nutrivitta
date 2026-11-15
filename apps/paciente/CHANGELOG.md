@@ -2,6 +2,12 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.4.0
+
+- **Permissão para editar a anamnese**: o nutricionista só altera a sua anamnese se você permitir. Quando ele pede, o aviso aparece no topo do diário e como notificação; você escolhe **Permitir** ou **Não permitir**.
+- A permissão vale por 24 horas, e você pode revogar antes em **Perfil > Nutricionistas**. Sem permissão, ele continua vendo a anamnese, mas não edita. O próprio banco de dados bloqueia a edição sem permissão.
+- Com o app aberto, o pedido aparece em até 15 segundos.
+
 ## 0.3.0
 
 - **Atualizações dentro do app**: quando sai uma versão nova, o NutriVitta avisa, mostra as novidades e atualiza com um toque, baixando só o que mudou quando possível. Seus dados continuam salvos.

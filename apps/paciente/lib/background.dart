@@ -66,6 +66,15 @@ class Background {
             'Abra o NutriVitta para aceitar ou recusar o pedido.',
           ),
     ];
+    final anamnesisAlerts = [
+      for (final l in links)
+        if (l.anamnesisPending)
+          Alert(
+            'anam:${l.id}:${l.anamnesisRequestedAt}',
+            '${l.proName.isEmpty ? 'Seu nutricionista' : l.proName} pediu para editar sua anamnese',
+            'Abra o NutriVitta para permitir ou não.',
+          ),
+    ];
     final commentAlerts = [
       for (final c in comments.values)
         Alert('comment:${c.date}:${c.updatedAt}', 'Recado de ${c.author.isEmpty ? 'seu nutricionista' : c.author}', c.text),
@@ -73,7 +82,7 @@ class Background {
     // num aparelho novo, recados antigos não viram notificação
     final first = await Alerts.firstRun();
     await Alerts.deliver(
-      [...linkAlerts, if (!first) ...commentAlerts],
+      [...linkAlerts, ...anamnesisAlerts, if (!first) ...commentAlerts],
       quietKeys: first ? {for (final a in commentAlerts) a.key} : const {},
     );
   }

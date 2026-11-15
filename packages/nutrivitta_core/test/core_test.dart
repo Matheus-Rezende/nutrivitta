@@ -102,6 +102,22 @@ void main() {
     expect(back.proName, 'Dra. Bia');
     expect(back.patientLabel, 'ana@x.com');
     expect(LinkStatus.parse('xyz'), LinkStatus.pending);
+
+    // permissão para editar a anamnese
+    final accepted = Link.fromJson(l.withStatus(LinkStatus.accepted).toJson());
+    expect(accepted.canEditAnamnesis, isFalse);
+    expect(accepted.anamnesisRequest, '');
+    final asked = accepted.copyWith(anamnesisRequest: 'pending', anamnesisRequestedAt: '2026-11-14T10:00:00Z');
+    expect(asked.anamnesisPending, isTrue);
+    final until = DateTime.now().add(Link.anamnesisGrant).millisecondsSinceEpoch;
+    final granted = Link.fromJson(asked.copyWith(anamnesisRequest: 'granted', anamnesisUntil: until).toJson());
+    expect(granted.canEditAnamnesis, isTrue);
+    expect(granted.anamnesisPending, isFalse);
+    expect(granted.anamnesisUntilTime!.millisecondsSinceEpoch, until);
+    final expired = granted.copyWith(anamnesisUntil: DateTime.now().subtract(const Duration(minutes: 1)).millisecondsSinceEpoch);
+    expect(expired.canEditAnamnesis, isFalse);
+    expect(granted.withStatus(LinkStatus.ended).canEditAnamnesis, isFalse);
+    expect(granted.anamnesisFields().keys, containsAll(['anamnesisRequest', 'anamnesisUntil', 'updatedAt']));
     expect(Remote.emailKey('  Ana@Gmail.COM '), 'ana@gmail.com');
   });
 

@@ -216,7 +216,21 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     }
   }
 
+  Future<void> _askAnamnesis() async {
+    final state = ProScope.read(context);
+    try {
+      await state.requestAnamnesis(state.current(widget.link));
+      if (mounted) showSnack(context, 'Pedido enviado. O paciente recebe o aviso no app NutriVitta.');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Não foi possível enviar o pedido agora.');
+    }
+  }
+
   Future<void> _editAnamnesis() async {
+    if (!ProScope.read(context).current(widget.link).canEditAnamnesis) {
+      showSnack(context, 'A permissão para editar terminou. Peça de novo ao paciente.');
+      return;
+    }
     final a = await Navigator.push<Anamnesis>(
       context,
       MaterialPageRoute(
@@ -229,6 +243,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
     try {
       await _remote.saveAnamnesis(_uid, stamped);
       if (mounted) setState(() => _anamnesis = stamped);
+    } on CloudException catch (e) {
+      if (mounted) {
+        showSnack(context,
+            e.denied ? 'O paciente revogou a permissão ou ela terminou. Peça de novo.' : 'Não foi possível salvar a anamnese agora.');
+      }
     } catch (e) {
       if (mounted) showSnack(context, 'Não foi possível salvar a anamnese agora.');
     }
@@ -363,11 +382,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
 
   Widget _anamnesisTab() {
     final a = _anamnesis;
+    final link = ProScope.of(context).current(widget.link);
     return RefreshIndicator(
       onRefresh: _loadAnamnesis,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [if (a == null) _loading() else AnamnesisView(anamnesis: a, onEdit: _editAnamnesis)],
+        children: [
+          _AnamnesisPermission(link: link, onAsk: _askAnamnesis),
+          const SizedBox(height: 12),
+          if (a == null) _loading() else AnamnesisView(anamnesis: a, onEdit: link.canEditAnamnesis ? _editAnamnesis : null),
+        ],
       ),
     );
   }
@@ -414,6 +438,77 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> with SingleTi
       body: TabBarView(
         controller: _tabs,
         children: [_diaryTab(), _summaryTab(), _measuresTab(), _anamnesisTab()],
+      ),
+    );
+  }
+}
+
+/// Situação da permissão para editar a anamnese, com o botão de pedir.
+class _AnamnesisPermission extends StatelessWidget {
+  const _AnamnesisPermission({required this.link, required this.onAsk});
+
+  final Link link;
+  final VoidCallback onAsk;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final until = link.anamnesisUntilTime;
+    final (IconData icon, Color? color, String title, String body) = link.canEditAnamnesis
+        ? (
+            Icons.lock_open_rounded,
+            scheme.primaryContainer,
+            'Você pode editar a anamnese',
+            'O paciente permitiu até ${shortDate(until!)} às ${hourMinute(until)}. Ele pode revogar antes.',
+          )
+        : link.anamnesisRequest == 'pending'
+            ? (
+                Icons.hourglass_top_rounded,
+                null,
+                'Aguardando o paciente',
+                'O pedido para editar a anamnese foi enviado. A resposta aparece aqui sozinha.',
+              )
+            : link.anamnesisRequest == 'denied'
+                ? (
+                    Icons.lock_outline_rounded,
+                    null,
+                    'Edição não permitida',
+                    'O paciente não permitiu (ou revogou) a edição. Você continua vendo a anamnese.',
+                  )
+                : (
+                    Icons.lock_outline_rounded,
+                    null,
+                    'Somente leitura',
+                    'Para alterar as respostas, peça permissão ao paciente. Ela vale por 24 horas.',
+                  );
+    final canAsk = !link.canEditAnamnesis && link.anamnesisRequest != 'pending';
+    return Card(
+      color: color,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon),
+                const SizedBox(width: 12),
+                Expanded(child: Text(title, style: text.titleMedium)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(body, style: text.bodyMedium),
+            if (canAsk) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: onAsk,
+                icon: const Icon(Icons.edit_note_rounded),
+                label: Text(link.anamnesisRequest == 'denied' ? 'Pedir de novo' : 'Pedir permissão para editar'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

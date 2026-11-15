@@ -53,7 +53,22 @@ void main() {
     expect(find.text('Dra. Bia quer acompanhar sua alimentação'), findsOneWidget);
     await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
-    expect(find.text('1 pedido de conexão aguardando você'), findsOneWidget);
+    expect(find.text('1 pedido aguardando você'), findsOneWidget);
+
+    // pedido para editar a anamnese de um nutricionista conectado
+    state.setProfile(state.profile.copyWith(nutritionistUids: ['p2']));
+    state.setLinks(const [
+      Link(
+          proUid: 'p2',
+          patientUid: 'u1',
+          proName: 'Dr. Caio',
+          status: LinkStatus.accepted,
+          anamnesisRequest: 'pending',
+          anamnesisRequestedAt: '2026-11-14T10:00:00Z'),
+    ]);
+    await tester.pumpAndSettle();
+    expect(state.pendingAnamnesis, hasLength(1));
+    expect(state.pendingCount, 1);
 
     // anamnese e medidas entram na fila de envio e na cópia do Drive
     state.saveMeasure(const BodyMeasure('2026-11-01', {'waist': 80}));

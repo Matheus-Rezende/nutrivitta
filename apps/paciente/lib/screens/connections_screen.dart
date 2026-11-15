@@ -54,6 +54,35 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
   }
 
+  Future<void> _anamnesis(Link link, {required bool grant, bool revoke = false}) async {
+    final who = link.proName.isEmpty ? 'o nutricionista' : link.proName;
+    if (grant) {
+      final ok = await confirm(
+        context,
+        title: 'Permitir que $who edite sua anamnese?',
+        text: 'A permissão vale por 24 horas. Você pode revogar antes disso nesta tela.',
+        ok: 'Permitir',
+      );
+      if (!ok || !mounted) return;
+    }
+    setState(() => _working = 'anam:${link.id}');
+    try {
+      await Sync.instance.answerAnamnesis(link, grant: grant);
+      if (!mounted) return;
+      showSnack(
+          context,
+          grant
+              ? '$who pode editar sua anamnese pelas próximas 24 horas.'
+              : revoke
+                  ? 'Permissão revogada.'
+                  : 'Pedido recusado.');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Não foi possível responder agora. Confira a internet e tente de novo.');
+    } finally {
+      if (mounted) setState(() => _working = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
@@ -62,6 +91,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     final account = Account.instance;
     final pending = state.pendingLinks;
     final connected = state.connectedLinks;
+    final anamnesis = state.pendingAnamnesis;
     return Scaffold(
       appBar: AppBar(title: const Text('Nutricionistas')),
       body: RefreshIndicator(
@@ -115,6 +145,43 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     ),
                   ),
                 ),
+              if (anamnesis.isNotEmpty) const SectionTitle('Pedidos para editar a anamnese', icon: Icons.assignment_outlined),
+              for (final l in anamnesis)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: NvCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('${l.proName.isEmpty ? 'Seu nutricionista' : l.proName} quer editar sua anamnese',
+                            style: text.titleMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Se você permitir, ele poderá alterar as respostas sobre rotina, alimentação e saúde pelas '
+                          'próximas 24 horas. Ele continua vendo a anamnese mesmo se você não permitir.',
+                          style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_working == 'anam:${l.id}')
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                    onPressed: () => _anamnesis(l, grant: false), child: const Text('Não permitir')),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                    onPressed: () => _anamnesis(l, grant: true), child: const Text('Permitir')),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               const SectionTitle('Conectados', icon: Icons.verified_user_outlined),
               if (connected.isEmpty)
                 Text('Nenhum nutricionista acompanha seus dados agora.',
@@ -129,12 +196,32 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         ListTile(
                           leading: const Icon(Icons.medical_information_outlined),
                           title: Text(l.proName.isEmpty ? 'Nutricionista' : l.proName),
-                          subtitle: l.proCrn.isEmpty ? null : Text(l.proCrn),
+                          subtitle: Text([
+                            if (l.proCrn.isNotEmpty) l.proCrn,
+                            l.canEditAnamnesis
+                                ? 'Pode editar a anamnese até ${shortDate(l.anamnesisUntilTime!)} às ${hourMinute(l.anamnesisUntilTime!)}'
+                                : 'Vê a anamnese, sem editar',
+                          ].join('\n')),
+                          isThreeLine: l.proCrn.isNotEmpty,
                           trailing: _working == l.id
                               ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
                               : TextButton(
                                   onPressed: () => _answer(l, LinkStatus.ended), child: const Text('Desconectar')),
                         ),
+                        if (l.canEditAnamnesis)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(56, 0, 12, 8),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: _working == 'anam:${l.id}'
+                                  ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : OutlinedButton.icon(
+                                      onPressed: () => _anamnesis(l, grant: false, revoke: true),
+                                      icon: const Icon(Icons.lock_outline, size: 18),
+                                      label: const Text('Revogar edição da anamnese'),
+                                    ),
+                            ),
+                          ),
                       ],
                     ],
                   ),

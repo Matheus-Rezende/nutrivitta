@@ -2,6 +2,11 @@
 
 Cada versão publicada usa a seção com o mesmo número como texto da Release e do aviso de atualização dentro do app.
 
+## 0.4.0
+
+- **Edição da anamnese com permissão do paciente**: na ficha do paciente, aba Anamnese, toque em **Pedir permissão para editar**. O paciente recebe o pedido e pode permitir ou não.
+- Se ele permitir, você edita pelas 24 horas seguintes (ou até ele revogar). A situação aparece na própria aba e se atualiza sozinha, com notificação quando o paciente responde.
+
 ## 0.3.0
 
 - **Atualizações dentro do app**: quando sai uma versão nova, o NutriVitta Pro avisa, mostra as novidades e atualiza com um toque, baixando só o que mudou quando possível.

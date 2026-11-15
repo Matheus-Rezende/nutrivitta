@@ -140,6 +140,12 @@ class AppState extends ChangeNotifier {
   List<Link> get connectedLinks =>
       _links.where((l) => l.accepted && _profile.nutritionistUids.contains(l.proUid)).toList();
 
+  /// Pedidos de nutricionistas conectados para editar a anamnese.
+  List<Link> get pendingAnamnesis => connectedLinks.where((l) => l.anamnesisPending).toList();
+
+  /// Tudo o que espera uma resposta do paciente.
+  int get pendingCount => pendingLinks.length + pendingAnamnesis.length;
+
   /// Foto ainda não enviada (base64), guardada no aparelho até subir.
   String? localPhoto(String entryId) => _prefs.getString('$_kPhotoPrefix$entryId');
 
