@@ -2,6 +2,7 @@
 /// modelos, acesso à nuvem, tema e componentes de tela.
 library;
 
+export 'src/alerts.dart';
 export 'src/cloud/account.dart';
 export 'src/cloud/drive_backup.dart';
 export 'src/cloud/firebase_rest.dart';

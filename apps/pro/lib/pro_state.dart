@@ -1,16 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'background.dart';
 
 /// Resultado do envio de um pedido de conexão.
 enum InviteResult { sent, notFound, alreadyConnected, alreadyPending, self }
 
 /// Estado do app do nutricionista: perfil profissional e pedidos/pacientes.
 /// Tudo fica online; o aparelho guarda só uma cópia do perfil para abrir rápido.
-class ProState extends ChangeNotifier {
-  ProState._(this._prefs);
+class ProState extends ChangeNotifier with WidgetsBindingObserver {
+  ProState._(this._prefs) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   static const _kProfile = 'nv_pro_profile_v1';
   static const _kOwner = 'nv_pro_owner_v1';
@@ -26,6 +32,11 @@ class ProState extends ChangeNotifier {
   bool loadingProfile = false;
   bool loadingLinks = false;
   String? error;
+
+  /// Verificação rápida com o app aberto (respostas dos pacientes).
+  Timer? _poll;
+  bool _polling = false;
+  static const pollEvery = Duration(seconds: 15);
 
   static Future<ProState> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -74,11 +85,59 @@ class ProState extends ChangeNotifier {
     loadingProfile = false;
     notifyListeners();
     if (ready) await refresh();
+    unawaited(ProAlerts.enable());
+    _startPolling();
   }
 
   void onSignedOut() {
     links = [];
+    _stopPolling();
+    unawaited(Alerts.disable());
     notifyListeners();
+  }
+
+  void _startPolling() {
+    _poll?.cancel();
+    _poll = Timer.periodic(pollEvery, (_) => unawaited(_quickCheck()));
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  /// Atualiza a lista sem mostrar carregamento e avisa as respostas novas.
+  Future<void> _quickCheck() async {
+    final uid = _account.uid;
+    if (_polling || loadingLinks || !_account.online || uid == null || !ready) return;
+    _polling = true;
+    try {
+      final fresh = await _remote.linksOfPro(uid);
+      fresh.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      final before = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}'};
+      final after = {for (final l in fresh) l.id: '${l.status.name}|${l.updatedAt}'};
+      if (!mapEquals(before, after)) {
+        links = fresh;
+        error = null;
+        notifyListeners();
+      }
+      await ProAlerts.report(fresh);
+    } catch (e) {
+      debugPrint('Verificação rápida: $e');
+    }
+    _polling = false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_account.signedIn) return;
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+      unawaited(_quickCheck());
+    } else if (state == AppLifecycleState.paused) {
+      // em segundo plano, quem verifica é o WorkManager
+      _stopPolling();
+    }
   }
 
   void _setProfile(ProProfile p) {
@@ -105,6 +164,7 @@ class ProState extends ChangeNotifier {
       links = await _remote.linksOfPro(uid);
       links.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       error = null;
+      unawaited(ProAlerts.report(links));
     } on CloudException catch (e) {
       error = e.denied
           ? 'A nuvem recusou o acesso. Confira as regras do Firestore (CONFIGURACAO.md).'
@@ -148,8 +208,11 @@ class ProState extends ChangeNotifier {
   /// Cancela um pedido ainda sem resposta, ou encerra o acompanhamento.
   Future<void> close(Link link) async {
     final status = link.accepted ? LinkStatus.ended : LinkStatus.cancelled;
-    await _remote.saveLink(link.withStatus(status));
-    links = [for (final l in links) l.id == link.id ? l.withStatus(status) : l];
+    final closed = link.withStatus(status);
+    // a própria ação não vira notificação
+    await Alerts.deliver(const [], quietKeys: {'link:${closed.id}:${closed.status.name}:${closed.updatedAt}'});
+    await _remote.saveLink(closed);
+    links = [for (final l in links) l.id == link.id ? closed : l];
     notifyListeners();
   }
 

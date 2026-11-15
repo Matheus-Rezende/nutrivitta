@@ -14,6 +14,7 @@ dependencies:
     path: ../../packages/nutrivitta_core
   google_sign_in: ^7.2.0
   shared_preferences: ^2.5.0
+  workmanager: ^0.10.0
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
+import 'background.dart';
 import 'pro_state.dart';
 import 'screens/pro_onboarding_screen.dart';
 import 'screens/pro_shell.dart';
@@ -26,6 +27,7 @@ class _NutriVittaProAppState extends State<NutriVittaProApp> {
     final account = Account.instance;
     account.onSignedIn = state.onSignedIn;
     account.onSignedOut = state.onSignedOut;
+    await ProAlerts.init();
     await account.init();
     return state;
   }

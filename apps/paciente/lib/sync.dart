@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nutrivitta_core/nutrivitta_core.dart';
 
@@ -31,6 +32,11 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
   bool _driveDirty = false;
   Timer? _debounce;
 
+  /// Verificação rápida com o app aberto (pedidos e recados novos).
+  Timer? _poll;
+  bool _polling = false;
+  static const pollEvery = Duration(seconds: 15);
+
   Future<void> init(AppState state) async {
     _state = state;
     state.onSaved = _changed;
@@ -38,6 +44,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
     _account.onSignedOut = () {
       _pulled = false;
       _debounce?.cancel();
+      _stopPolling();
     };
     WidgetsBinding.instance.addObserver(this);
     await _account.init(scopes: const [DriveBackup.scope]);
@@ -61,6 +68,41 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
     unawaited(Background.instance.enable());
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _poll?.cancel();
+    _poll = Timer.periodic(pollEvery, (_) => unawaited(_quickCheck()));
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  /// Busca só pedidos e recados recentes (leve), sem mexer na fila de envio.
+  Future<void> _quickCheck() async {
+    final uid = _account.uid;
+    if (_polling || busy || !_account.online || uid == null || !_state.onboarded) return;
+    _polling = true;
+    try {
+      final results = await Future.wait<Object>([
+        _remote.linksOfPatient(uid),
+        _remote.recentComments(uid, Background.recentSince),
+      ]);
+      final links = results[0] as List<Link>;
+      final recent = results[1] as Map<String, DayComment>;
+      final before = {for (final l in _state.links) l.id: '${l.status.name}|${l.updatedAt}'};
+      final after = {for (final l in links) l.id: '${l.status.name}|${l.updatedAt}'};
+      if (!mapEquals(before, after)) await _applyLinks(uid, links);
+      final changed = recent.entries.any((e) => _state.comment(e.key)?.updatedAt != e.value.updatedAt);
+      if (changed) _state.setComments({..._state.comments, ...recent});
+      await Background.report(links, recent);
+    } catch (e) {
+      debugPrint('Verificação rápida: $e');
+    }
+    _polling = false;
   }
 
   /// Sai da conta neste aparelho; os dados continuam aqui e na nuvem.
@@ -136,7 +178,7 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
         _state.mergeRemoteAnamnesis(results[1] as Anamnesis);
         _state.mergeRemoteMeasures(results[2] as List<BodyMeasure>);
         await _applyLinks(uid, results[3] as List<Link>);
-        await Background.instance.markSeen(_state);
+        await Background.report(results[3] as List<Link>, results[0] as Map<String, DayComment>);
       }
       _pulled = true;
     }
@@ -273,12 +315,21 @@ class Sync extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _account.signedIn && !busy) {
+    if (state == AppLifecycleState.resumed && _account.signedIn) {
+      _startPolling();
       final last = lastSync;
-      if (last == null || DateTime.now().difference(last).inMinutes >= 2) unawaited(refresh(userAsked: false));
-    } else if (state == AppLifecycleState.paused && _account.signedIn && _state.dirty.isNotEmpty) {
-      _debounce?.cancel();
-      unawaited(run());
+      if (!busy && (last == null || DateTime.now().difference(last).inMinutes >= 2)) {
+        unawaited(refresh(userAsked: false));
+      } else {
+        unawaited(_quickCheck());
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // em segundo plano, quem verifica é o WorkManager
+      _stopPolling();
+      if (_account.signedIn && _state.dirty.isNotEmpty) {
+        _debounce?.cancel();
+        unawaited(run());
+      }
     }
   }
 

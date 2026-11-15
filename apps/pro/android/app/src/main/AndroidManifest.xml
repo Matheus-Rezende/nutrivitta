@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Login Google e dados dos pacientes (Firebase). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Aviso quando o paciente aceita ou recusa o pedido de conexão. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="NutriVitta Pro"
         android:name="${applicationName}"

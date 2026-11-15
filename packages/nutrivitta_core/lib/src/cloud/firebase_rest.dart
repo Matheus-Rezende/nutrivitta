@@ -173,9 +173,13 @@ class Firestore {
 
   /// Documentos de uma coleção de primeiro nível em que [field] é igual a
   /// [value]: (id, dados). Um só filtro de igualdade não precisa de índice.
-  Future<List<(String, Map<String, dynamic>)>> where(String collection, String field, Object value) async {
-    final uri = Uri.https(
-        'firestore.googleapis.com', '/v1/projects/$projectId/databases/(default)/documents:runQuery');
+  ///
+  /// Com [parent] (ex.: 'users/abc'), consulta a subcoleção daquele documento.
+  /// [op] segue a API do Firestore: EQUAL, GREATER_THAN_OR_EQUAL etc.
+  Future<List<(String, Map<String, dynamic>)>> where(String collection, String field, Object value,
+      {String parent = '', String op = 'EQUAL'}) async {
+    final base = '/v1/projects/$projectId/databases/(default)/documents';
+    final uri = Uri.https('firestore.googleapis.com', parent.isEmpty ? '$base:runQuery' : '$base/$parent:runQuery');
     final body = jsonEncode({
       'structuredQuery': {
         'from': [
@@ -184,7 +188,7 @@ class Firestore {
         'where': {
           'fieldFilter': {
             'field': {'fieldPath': field},
-            'op': 'EQUAL',
+            'op': op,
             'value': toValue(value),
           }
         },

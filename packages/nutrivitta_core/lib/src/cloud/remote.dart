@@ -97,6 +97,13 @@ class Remote {
           if (((data['text'] as String?) ?? '').isNotEmpty) id: DayComment.fromJson(id, data),
       };
 
+  /// Recados criados ou editados desde [since] (consulta leve, para avisos).
+  Future<Map<String, DayComment>> recentComments(String uid, DateTime since) async => {
+        for (final (id, data) in await _db.where('comments', 'updatedAt', since.toUtc().toIso8601String(),
+            parent: 'users/$uid', op: 'GREATER_THAN_OR_EQUAL'))
+          if (((data['text'] as String?) ?? '').isNotEmpty) id: DayComment.fromJson(id, data),
+      };
+
   Future<DayComment?> comment(String patientUid, String date) async {
     final j = await _db.get('users/$patientUid/comments/$date');
     if (j == null || ((j['text'] as String?) ?? '').isEmpty) return null;
