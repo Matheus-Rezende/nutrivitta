@@ -7,7 +7,6 @@ import '../theme/nv_theme.dart';
 import '../update/update_ui.dart';
 import '../update/updater.dart';
 import 'brand.dart';
-import 'common.dart';
 
 /// Configurações (comum aos dois apps): conta, aparência, notificações,
 /// atualizações e informações do aplicativo.
